@@ -49,7 +49,7 @@ const FloatingWidget = () => {
                     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
                     const res = await fetch(`${matchmakerUrl}/signallingserver`);
                     const data = await res.json();
-const ssUrl = `${protocol}://${data.signallingServer}`;
+                    const ssUrl = `${protocol}://${data.signallingServer}`;
                     const config = new Config({
                                         initialSettings: {
                                             ss: ssUrl,

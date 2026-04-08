@@ -165,3 +165,58 @@
 #videoElementParent{
     display: flex;
 }
+
+
+/* ===== 위치만 추가 ===== */
+
+.dh-widget.bottom-right {
+  bottom: 90px;
+  right: 20px;
+}
+
+.dh-widget.bottom-left {
+  bottom: 90px;
+  left: 20px;
+}
+
+.dh-widget.top-right {
+  top: 20px;
+  right: 20px;
+}
+
+.dh-widget.top-left {
+  top: 20px;
+  left: 20px;
+}
+
+.dh-widget.center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 버튼 위치 */
+.dh-toggle-btn.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+.dh-toggle-btn.bottom-left {
+  bottom: 20px;
+  left: 20px;
+}
+
+.dh-toggle-btn.top-right {
+  top: 20px;
+  right: 20px;
+}
+
+.dh-toggle-btn.top-left {
+  top: 20px;
+  left: 20px;
+}
+
+.dh-toggle-btn.center {
+  bottom: 20px;
+  right: 20px;
+}
