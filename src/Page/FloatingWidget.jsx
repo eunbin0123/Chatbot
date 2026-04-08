@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Config, PixelStreaming } from "@epicgames-ps/lib-pixelstreamingfrontend-ue5.4";
-import "./FloatingWidget.css";
+import "../css/FloatingWidget.css";
 
 const FloatingWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -46,12 +46,13 @@ const FloatingWidget = () => {
             const connect = async () => {
                 try {
                     const matchmakerUrl = import.meta.env.VITE_MATCHMAKER.replace("https://", "http://");
+                    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
                     const res = await fetch(`${matchmakerUrl}/signallingserver`);
                     const data = await res.json();
-
+const ssUrl = `${protocol}://${data.signallingServer}`;
                     const config = new Config({
                                         initialSettings: {
-                                            ss: `wss://${data.signallingServer}`,
+                                            ss: ssUrl,
                                             AutoPlayVideo: true,
                                             AutoConnect: true,
                                             //StartVideoMuted: true,

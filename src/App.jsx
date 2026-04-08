@@ -1,19 +1,20 @@
-import { useState } from 'react'
 import './App.css'
-import React from 'react';
-import Customize from './Customize'
-import FloatingWidget from './FloatingWidget';
-
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Dashboard from './page/Dashboard';
+import Admin from './page/Admin';
+import FloatingWidget from './Page/FloatingWidget';
+import Customize from './Page/Customize';
 export default function App() {
   return (
-    <div className="app-container">
-      {/* 2. UI 설정을 위한 Customize 컴포넌트 */}
-      <div className="customize-layer">
-        <Customize />
-      </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        {/* /api 경로로 접속하면 Admin 컴포넌트를 보여줌 */}
+        <Route path="/api" element={<Admin />} />
+        <Route path="/normal" element={<FloatingWidget />} />
+        <Route path="/customize" element={<Customize />} />
 
-      {/* 3. 항상 위에 떠 있는 FloatingWidget */}
-      <FloatingWidget />
-    </div>
+      </Routes>
+    </Router>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Config, PixelStreaming } from "@epicgames-ps/lib-pixelstreamingfrontend-ue5.4";
-import "./Customize.css"; 
+import "../css/Customize.css"; 
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
 const Customize = () => {
@@ -91,17 +91,16 @@ const sliderLabels = [
                     const data = await res.json();
 
                     const config = new Config({
-                                                            initialSettings: {
-                                                                ss: `wss://${data.signallingServer}`,
-                                                                AutoPlayVideo: true,
-                                                                AutoConnect: true,
-                                                                //StartVideoMuted: true,
-                                                                HoveringMouse: true,
-                                                            },
-                                                        });
-                    
-                                        const psInstance = new PixelStreaming(config);
-                                        psInstanceRef.current = psInstance;
+                        initialSettings: {
+                            ss: `wss://${data.signallingServer}`,
+                            AutoPlayVideo: true,
+                            AutoConnect: true,
+                            //StartVideoMuted: true,
+                            HoveringMouse: true,
+                        },
+                    });
+                    const psInstance = new PixelStreaming(config);
+                    psInstanceRef.current = psInstance;
 
                     psInstance.addEventListener("videoInitialized", () => {
                         if (videoWrapperRef.current) {
