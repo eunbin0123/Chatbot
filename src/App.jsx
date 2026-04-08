@@ -1,7 +1,7 @@
 import './App.css'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Dashboard from './page/Dashboard';
-import Admin from './page/Admin';
+import Dashboard from './Page/Dashboard';
+import Admin from './Page/Admin';
 import FloatingWidget from './Page/FloatingWidget';
 import Customize from './Page/Customize';
 export default function App() {
