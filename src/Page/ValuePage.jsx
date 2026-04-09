@@ -34,7 +34,7 @@ const FullScreenIframe = () => {
     <div style={wrapperStyle}>
       {/* 배경 페이지 */}
       <iframe
-        src="https://www.seochosenior.org/bbs/content.php?co_id=value"
+        src="https://www.seochosenior.org/"
         title="서초구립 양재노인종합복지관"
         style={iframeStyle}
         allowFullScreen
