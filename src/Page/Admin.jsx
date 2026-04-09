@@ -703,13 +703,7 @@ export default function App() {
           )}
         </div>
 
-        {/****************수정***************/}
-       <div>
-  <DigitalHuman
-    apiKey={import.meta.env.VITE_KLEVER_API_KEY}
-    layout={layout}
-  />
-</div>
+       
 
       </div>
 
