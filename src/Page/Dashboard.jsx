@@ -16,7 +16,7 @@ function Dashboard() {
           {/* onClick 시 navigate를 사용하여 경로 이동 */}
           <button 
             className={`${styles['menu-btn']} ${styles.api}`} 
-            onClick={() => navigate('/external')}
+            onClick={() => navigate('/value')}
           >
             <div className={styles.icon}>⚡</div>
             <span>API Chatbot</span>
