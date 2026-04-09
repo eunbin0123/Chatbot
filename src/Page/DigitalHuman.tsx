@@ -79,8 +79,10 @@ export function DigitalHuman({ apiKey }: DigitalHumanProps) {
             // 200ms 후 시도
             setTimeout(() => {
               try {
-                client.sendText("안녕하세요");
+                //client.sendText("안녕하세요");
                 client.sendZoomIn();
+                
+                client.speak("안녕하세요! 우리 동네 복지 전문가, 노원복지샘의 디지털 가이드입니다. 오늘 어떤 도움이 필요해서 오셨나요? 저희 노원복지샘에서는 주민 여러분을 위해 크게 세 가지 서비스를 정성껏 준비하고 있어요 첫째, 나에게 딱 맞는 복지 혜택을 찾아드리는 '맞춤 복지 검색', 둘째, 우리 동네 복지관의 유익한 프로그램 정보를 알려드리는 '복지 시설 안내', 셋째, 어려운 상황을 함께 고민하고 해결해 드리는 **'복지 상담 서비스'**입니다.이 중에서 사용자님께 가장 필요한 서비스는 무엇인가요? 화면의 버튼을 누르거나 저에게 말씀해 주시면 바로 안내를 시작할게요");
                 console.log("시작 메시지 전송 완료");
               } catch (e) {
                 console.error("ConversationManager 준비 안됨, 재시도 필요");
