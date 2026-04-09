@@ -33,7 +33,7 @@ const FullScreenIframe = () => {
   return (
     <div style={wrapperStyle}>
       {/* 이미지 높이만큼 스크롤 공간 확보 (필요시 조절) */}
-      <div style={{ height: '2000px', width: '100%' }}></div>
+      <div style={{ height: '100vh', width: '100%' }}></div>
 
       <div style={digitalHumanWrapperStyle}>
         <DigitalHuman apiKey={import.meta.env.VITE_KLEVER_API_KEY} />

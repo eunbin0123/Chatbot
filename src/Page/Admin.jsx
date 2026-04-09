@@ -703,6 +703,14 @@ export default function App() {
           )}
         </div>
 
+
+        
+        <DigitalHuman
+          apiKey={import.meta.env.VITE_KLEVER_API_KEY}
+          layout={layout}
+          autoOff={autoOff * 60 + autoOffSec}
+        />
+
        
 
       </div>

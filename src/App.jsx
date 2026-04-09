@@ -8,15 +8,7 @@ import { DigitalHuman } from './Page/DigitalHuman';
 import ChatbotTest from './Page/ChatbotTest';
 import ValuePage from './Page/ValuePage';
 
-function ExternalHTML() {
-  return (
-    <iframe 
-      src="/WidgetLoader.html" 
-      style={{ width: '100%', height: '100%', border: 'none' }} 
-      title="External Page"
-    />
-  );
-}
+
 
 export default function App() {
   return (
@@ -24,7 +16,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ValuePage />} />
         {/* /api 경로로 접속하면 Admin 컴포넌트를 보여줌 */}
-        <Route path="/external" element={<ExternalHTML />} />
+        <Route path="/external" element={<ChatbotTest />} />
         <Route path="/api" element={<DigitalHuman apiKey={import.meta.env.VITE_KLEVER_API_KEY} />} />
         <Route path="/test" element={<ChatbotTest/>} />
         <Route path="/apiadmin" element={<Admin />} />

@@ -165,3 +165,71 @@
 #videoElementParent{
     display: flex;
 }
+
+/* ================== layout override ================== */
+
+.dh-widget,
+.dh-toggle-btn {
+  position: fixed;
+}
+
+/* 우하단 */
+.dh-widget.bottom-right {
+  bottom: 90px;
+  right: 20px;
+}
+.dh-toggle-btn.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* 좌하단 */
+.dh-widget.bottom-left {
+  bottom: 90px;
+  left: 20px;
+  right: auto;
+}
+.dh-toggle-btn.bottom-left {
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+}
+
+/* 우상단 */
+.dh-widget.top-right {
+  top: 90px;
+  right: 20px;
+  bottom: auto;
+}
+.dh-toggle-btn.top-right {
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+}
+
+/* 좌상단 */
+.dh-widget.top-left {
+  top: 90px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+.dh-toggle-btn.top-left {
+  top: 20px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+
+/* 중앙 */
+.dh-widget.center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  bottom: auto;
+  right: auto;
+}
+.dh-toggle-btn.center {
+  bottom: 20px;
+  right: 20px;
+}
