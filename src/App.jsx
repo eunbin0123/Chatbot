@@ -22,7 +22,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<ValuePage />} />
         {/* /api 경로로 접속하면 Admin 컴포넌트를 보여줌 */}
         <Route path="/external" element={<ExternalHTML />} />
         <Route path="/api" element={<DigitalHuman apiKey={import.meta.env.VITE_KLEVER_API_KEY} />} />
