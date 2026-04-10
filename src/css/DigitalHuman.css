@@ -26,6 +26,7 @@
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  border-radius: 10px;
 }
 
 /* SDK 생성 요소 강제 맞춤 */
@@ -175,7 +176,7 @@
 
 /* 우하단 */
 .dh-widget.bottom-right {
-  bottom: 90px;
+  bottom: 20px;
   right: 20px;
 }
 .dh-toggle-btn.bottom-right {
@@ -185,7 +186,7 @@
 
 /* 좌하단 */
 .dh-widget.bottom-left {
-  bottom: 90px;
+  bottom: 20px;
   left: 20px;
   right: auto;
 }
@@ -197,7 +198,7 @@
 
 /* 우상단 */
 .dh-widget.top-right {
-  top: 90px;
+  top: 20px;
   right: 20px;
   bottom: auto;
 }
@@ -209,7 +210,7 @@
 
 /* 좌상단 */
 .dh-widget.top-left {
-  top: 90px;
+  top: 20px;
   left: 20px;
   bottom: auto;
   right: auto;
@@ -232,4 +233,37 @@
 .dh-toggle-btn.center {
   bottom: 20px;
   right: 20px;
+}
+
+
+
+
+/* FloatingWidget.css */
+
+.dh-widget {
+    overflow: visible !important; 
+}
+
+.dh-resize-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5)); /* 꺽쇠가 잘 보이도록 그림자 추가 */
+}
+
+.dh-resize-handle:hover {
+    background: rgba(255, 255, 255, 0.1); /* 호버 시 아주 살짝 배경 */
+    transform: scale(1.15);
+}
+
+.dh-resize-handle svg {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.dh-resize-handle:hover svg {
+    opacity: 1;
+    stroke: #3b82f6; /* 호버 시 파란색 포인트 */
 }

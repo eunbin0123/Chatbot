@@ -21,7 +21,11 @@ export default function App() {
         <Route path="/api" element={<DigitalHuman apiKey={import.meta.env.VITE_KLEVER_API_KEY} />} />
         <Route path="/test" element={<ChatbotTest/>} />
         <Route path="/apiadmin" element={<Admin />} />
-        <Route path="/normal" element={<BasicChatbot />} />
+        <Route path="/normal" element={<BasicChatbot 
+                unrealurl = {import.meta.env.VITE_MATCHMAKER}
+                layout={"bottom-right"}
+                avatarnum={1}
+              />} />
         <Route path="/customize" element={<Customize />} />
         <Route path="/value" element={<ValuePage />} />
         <Route path="/basicadmin" element={<BasicAdmin />} />
