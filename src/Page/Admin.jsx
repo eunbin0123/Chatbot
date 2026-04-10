@@ -15,7 +15,7 @@ export default function App() {
     {
       id: 1,
       name: "klever one",
-      value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
+      value: import.meta.env.VITE_KLEVER_API_KEY,
       date: "2026-04-07",
       character: "yuri",
       voice: "jennie_basic",

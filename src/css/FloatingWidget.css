@@ -187,3 +187,75 @@
 #fw-app-root #videoElementParent{
     display: flex;
 }
+
+
+
+/* ================== layout override ================== */
+
+/* ================== layout override ================== */
+
+.fw-widget,
+.fw-toggle {
+  position: fixed;
+}
+
+/* 우하단 */
+.fw-widget.bottom-right {
+  bottom: 90px;
+  right: 20px;
+}
+.fw-toggle.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* 좌하단 */
+.fw-widget.bottom-left {
+  bottom: 90px;
+  left: 20px;
+  right: auto;
+}
+.fw-toggle.bottom-left {
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+}
+
+/* 우상단 */
+.fw-widget.top-right {
+  top: 90px;
+  right: 20px;
+  bottom: auto;
+}
+.fw-toggle.top-right {
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+}
+
+/* 좌상단 */
+.fw-widget.top-left {
+  top: 90px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+.fw-toggle.top-left {
+  top: 20px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+
+/* 중앙 */
+.fw-widget.center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  bottom: auto;
+  right: auto;
+}
+.fw-toggle.center {
+  bottom: 20px;
+  right: 20px;
+}

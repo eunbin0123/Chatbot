@@ -28,6 +28,13 @@ function Dashboard() {
             <div className={styles.icon}>👩‍💻</div>
             <span>API Chatbot Admin</span>
           </button>
+          <button 
+            className={`${styles['menu-btn']} ${styles.api}`} 
+            onClick={() => navigate('/basicadmin')}
+          >
+            <div className={styles.icon}>👩‍💻</div>
+            <span>API Basic Chatbot Admin</span>
+          </button>
           <button className={`${styles['menu-btn']} ${styles.normal}`} onClick={() => navigate('/normal')}>
             <div className={styles.icon}>💬</div>
             <span>Basic Chatbot</span>
