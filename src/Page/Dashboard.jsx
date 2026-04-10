@@ -16,7 +16,7 @@ function Dashboard() {
           {/* onClick 시 navigate를 사용하여 경로 이동 */}
           <button 
             className={`${styles['menu-btn']} ${styles.api}`} 
-            onClick={() => navigate('/external')}
+            onClick={() => navigate('/api')}
           >
             <div className={styles.icon}>⚡</div>
             <span>API Chatbot</span>
@@ -28,18 +28,18 @@ function Dashboard() {
             <div className={styles.icon}>👩‍💻</div>
             <span>API Chatbot Admin</span>
           </button>
-          <button 
-            className={`${styles['menu-btn']} ${styles.api}`} 
-            onClick={() => navigate('/basicadmin')}
-          >
-            <div className={styles.icon}>👩‍💻</div>
-            <span>API Basic Chatbot Admin</span>
-          </button>
+          
           <button className={`${styles['menu-btn']} ${styles.normal}`} onClick={() => navigate('/normal')}>
             <div className={styles.icon}>💬</div>
             <span>Basic Chatbot</span>
           </button>
-
+          <button 
+            className={`${styles['menu-btn']} ${styles.api}`} 
+            onClick={() => navigate('/basicadmin')}
+          >
+            <div className={styles.icon}>👨‍💻</div>
+            <span>Basic Chatbot Admin</span>
+          </button>
           <button className={`${styles['menu-btn']} ${styles.customize}`} onClick={() => navigate('/customize')}>
             <div className={styles.icon}>⚙️</div>
             <span>Customize</span>
