@@ -18,8 +18,6 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum }: BasicCha
 
     const videoWrapperRef = useRef<HTMLDivElement | null>(null);
     const psInstanceRef = useRef<PixelStreaming | null>(null);
-
-
     const widgetRef = useRef<HTMLDivElement | null>(null);
 
    const handleResize = (mouseDownEvent: React.MouseEvent) => {
@@ -34,12 +32,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum }: BasicCha
                 // 핸들이 우측에 있으면(isLeft=true인 layout), 왼쪽으로 갈수록 커짐 (-)
                 // 핸들이 상단에 있으면(isTop=false인 layout), 아래로 갈수록 커짐 (+)
                 // 핸들이 하단에 있으면(isTop=true인 layout), 위로 갈수록 커짐 (-)
-                
-                const deltaX = isLeft ? -mouseMoveEvent.movementX : mouseMoveEvent.movementX;
-                const deltaY = isTop ? -mouseMoveEvent.movementY : mouseMoveEvent.movementY;
 
-                // 예: bottom-right 위젯은 핸들이 좌측상단에 있음 -> 마우스가 왼쪽/위로 갈수록 커져야 함
-                // movementX가 음수(왼쪽)일 때 deltaX가 양수가 되어야 하므로 위 로직이 맞습니다.
                 const adjustX = layout === "bottom-right" || layout === "center" || layout === "top-right" ? -mouseMoveEvent.movementX : mouseMoveEvent.movementX;
                 const adjustY = layout === "bottom-right" || layout === "center" || layout === "bottom-left" ? -mouseMoveEvent.movementY : mouseMoveEvent.movementY;
 

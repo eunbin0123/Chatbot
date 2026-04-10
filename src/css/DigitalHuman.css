@@ -49,6 +49,7 @@
   color: white;
   z-index: 10000;
   font-size: 14px;
+  border-radius: 10px;
 }
 
 .dh-spinner {

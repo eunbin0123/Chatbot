@@ -87,6 +87,7 @@
     justify-content: center;
     color: white;
     z-index: 10000;
+    border-radius: 10px;
 }
 
 /* 하단 입력바 - DigitalHuman 스타일로 작고 깔끔하게 */
