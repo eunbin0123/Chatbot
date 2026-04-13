@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BasicChatbot } from "./BasicChatBot";
 import { DigitalHuman } from "./DigitalHuman";
-
 const styles = `
 /* =========================================
    AgentSettings.css (KLEVER ONE Vibe)
@@ -1114,6 +1113,34 @@ button {
 .code-container .code-highlight {
   color: #00c6ff;
 }
+
+/* 🚀 삽입 코드 탭 스타일 추가 */
+.code-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.code-tab-btn {
+  background: transparent;
+  border: 1px solid #4a5568;
+  color: #a0aec0;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.code-tab-btn:hover {
+  background: #2d3748;
+  color: #e2e8f0;
+}
+.code-tab-btn.active {
+  background: rgba(0, 198, 255, 0.1);
+  border-color: #00c6ff;
+  color: #00c6ff;
+}
+
 .btn-copy-code {
   position: absolute;
   top: 12px;
@@ -1184,6 +1211,12 @@ button {
 .light-mode .code-container { background-color: #f7fafc; border-color: #cbd5e0; }
 .light-mode .code-container pre { color: #2d3748; }
 .light-mode .btn-copy-code { background-color: #ffffff; color: #4a5568; border-color: #cbd5e0; }
+
+/* 라이트 모드 삽입 코드 탭 스타일 */
+.light-mode .code-tab-btn { border-color: #cbd5e0; color: #718096; }
+.light-mode .code-tab-btn:hover { background: #edf2f7; color: #1a202c; }
+.light-mode .code-tab-btn.active { background: rgba(0, 114, 255, 0.05); border-color: #0072ff; color: #0072ff; }
+
 .light-mode .modal-box { background-color: #ffffff; border-color: #e2e8f0; }
 .light-mode .modal-title { color: #1a202c; }
 .light-mode .modal-desc { color: #4a5568; }
@@ -1365,6 +1398,7 @@ export default function App({chatbotType}) {
   const [newMcpUrl, setNewMcpUrl] = useState("");
 
   const [isDarkMode, setIsDarkMode] = useState(true); // 🚀 다크/라이트 모드 상태 관리
+  const [codeTab, setCodeTab] = useState("vanilla"); // 🚀 삽입 코드 탭 상태 (vanilla / react)
 
   // 🚀 브라우저 기본 Alert/Confirm 대체용 모달 상태
   const [alertMessage, setAlertMessage] = useState("");
@@ -1430,7 +1464,7 @@ export default function App({chatbotType}) {
       {
         id: 1,
         name: "klever one",
-        value: import.meta.env.VITE_KLEVER_API_KEY,
+        value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
         date: "2026-04-07",
         character: "", // 🚀 기본 선택 해제
         voice: "",     // 🚀 기본 목소리 선택 해제
@@ -1593,14 +1627,44 @@ export default function App({chatbotType}) {
     setIsExitModalOpen(false);
   };
 
-  // 🚀 위젯 삽입 코드 생성
+  // 🚀 위젯 삽입 코드 생성 (실제 동작 가능한 비동기 로딩 및 리액트 컴포넌트 구조)
   const getEmbedCode = () => {
     const totalSeconds = (parseInt(autoOff) || 0) * 60 + (parseInt(autoOffSec) || 0);
-    return `<script 
-  src="https://cdn.klever-one.com/widget.js" 
-  data-layout="${layout}" 
-  data-auto-off="${totalSeconds}"
-></script>`;
+    
+    if (codeTab === "react") {
+      return `// npm install @klever-one/react
+
+import { KleverWidget } from '@klever-one/react';
+
+export default function App() {
+  return (
+    <>
+      {/* 다른 컴포넌트들... */}
+      <KleverWidget 
+        clientId="YOUR_CLIENT_ID" // 발급받은 클라이언트 API 키
+        layout="${layout}"
+        autoOff={${totalSeconds}}
+      />
+    </>
+  );
+}`;
+    }
+
+    return `<!-- KLEVER ONE Widget -->
+<script>
+  (function(w, d, s, o, f, js, fjs) {
+    w['KleverOneWidget'] = o; w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };
+    js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];
+    js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);
+  }(window, document, 'script', 'kw', 'https://cdn.klever-one.com/widget.js'));
+  
+  // 위젯 초기화 및 설정 적용
+  kw('init', {
+    clientId: 'YOUR_CLIENT_ID', // 발급받은 클라이언트 API 키
+    layout: '${layout}',
+    autoOff: ${totalSeconds}
+  });
+</script>`;
   };
 
   // 🚀 삽입 코드 복사 로직
@@ -1689,43 +1753,42 @@ export default function App({chatbotType}) {
       name: "유리 (Yuri)",
       desc: "단정하고 신뢰감 있는 안내원 스타일",
       bg: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
-      num:5
+      num: 5 // 👈 이 부분이 누락됨
     },
     {
       id: "chanu",
       name: "차누 (Chanu)",
       desc: "전문적이고 논리적인 컨설턴트 스타일",
       bg: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)",
-      num:2
-
+      num: 2 // 👈 추가
     },
     {
-      id: "Michael",
-      name: "마이클 (Michael)", // 선생님이 요청하신 마이클!
+      id: "sujin",
+      name: "마이클 (Michael)", 
       desc: "밝고 캐주얼한 일상 대화 스타일",
       bg: "linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)",
-      num:4
+      num: 4 // 👈 추가
     },
     {
       id: "kris",
       name: "크리스 (Kris)",
       desc: "글로벌 서비스에 적합한 외국인 모델",
       bg: "linear-gradient(135deg, #141e30 0%, #243b55 100%)",
-      num:3
+      num: 3 // 👈 추가
     },
     {
       id: "custom1",
       name: "나의 커스텀 1",
       desc: "KLEVER 스튜디오에서 연동된 모델",
       bg: "linear-gradient(135deg, #4b6cb7 0%, #182848 100%)",
-      num:0
+      num: 0 // 👈 추가
     },
     {
       id: "custom2",
       name: "나의 커스텀 2",
       desc: "KLEVER 스튜디오에서 연동된 모델",
       bg: "linear-gradient(135deg, #614385 0%, #516395 100%)",
-      num:0
+      num: 0 // 👈 추가
     },
   ];
 
@@ -1737,7 +1800,6 @@ export default function App({chatbotType}) {
     { id: "top-right", label: "우측 상단", boxClass: "tr" },
     { id: "top-left", label: "좌측 상단", boxClass: "tl" },
   ];
-
   const selectedHuman = digitalHumans.find(human => human.id === activeAgent.character);
   const currentAvatarNum = selectedHuman ? selectedHuman.num : 0;
 
@@ -1950,17 +2012,15 @@ export default function App({chatbotType}) {
                   </div>
                 )}
 
-                {llmType !== "" && (
-                  <>
-                    <hr className="card-divider" />
+                <hr className="card-divider" />
 
-                    <h3 className="card-title">해당 엔진의 지식저장소 (RAG) 설정</h3>
-                    <p className="card-desc" style={{ marginBottom: "16px" }}>
-                      선택한 엔진이 답변 시 참고할 지식 기반(Knowledge Base)을 연결합니다.
-                    </p>
-                    
-                    <div className="radio-group" style={{ gridTemplateColumns: `repeat(${getRagOptions().length}, 1fr)` }}>
-                      {getRagOptions().map((option) => (
+                <h3 className="card-title">해당 엔진의 지식저장소 (RAG) 설정</h3>
+                <p className="card-desc" style={{ marginBottom: "16px" }}>
+                  선택한 엔진이 답변 시 참고할 지식 기반(Knowledge Base)을 연결합니다.
+                </p>
+                
+                <div className="radio-group" style={{ gridTemplateColumns: `repeat(${getRagOptions().length}, 1fr)` }}>
+                  {getRagOptions().map((option) => (
                         <label
                           key={option.value}
                           className={`radio-card ${ragType === option.value ? "active" : ""}`}
@@ -2094,18 +2154,15 @@ export default function App({chatbotType}) {
                         />
                       </div>
                     )}
-                  </>
-                )}
               </div>
 
-              {/* 🚀 외부 도구 연동 (MCP) 카드 - 엔진이 선택되었을 때만 표시 */}
-              {llmType !== "" && (
-                <div className="setting-card fade-in">
-                  <div className="card-header-flex" style={{ marginBottom: "16px" }}>
-                    <div>
-                      <h3 className="card-title">외부 도구 연동 (MCP)</h3>
+              {/* 🚀 외부 도구 연동 (MCP) 카드 */}
+              <div className="setting-card fade-in">
+                <div className="card-header-flex" style={{ marginBottom: "16px" }}>
+                  <div>
+                    <h3 className="card-title">외부 도구 연동 (MCP)</h3>
                       <p className="card-desc" style={{ marginBottom: 0 }}>
-                        에이전트가 특정 작업을 수행할 수 있도록 기본 도구나 커스텀 API(Model Context Protocol)를 연결하세요.
+                        기본 도구나 커스텀 API(Model Context Protocol)를 연결하여 에이전트의 기능을 확장하세요.
                       </p>
                     </div>
                     <button 
@@ -2154,15 +2211,13 @@ export default function App({chatbotType}) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+              </div>
 
-              {/* 🚀 에이전트 행동 지침 (태그/직접 프롬프팅) 카드 - 엔진이 선택되었을 때만 표시 */}
-              {llmType !== "" && (
-                <div className="setting-card fade-in">
-                  <div className="card-header-flex" style={{ marginBottom: '24px' }}>
-                    <div>
-                      <h3 className="card-title">에이전트 행동 지침 (프롬프팅)</h3>
+              {/* 🚀 에이전트 행동 지침 (태그/직접 프롬프팅) 카드 */}
+              <div className="setting-card fade-in">
+                <div className="card-header-flex" style={{ marginBottom: '24px' }}>
+                  <div>
+                    <h3 className="card-title">에이전트 행동 지침 (프롬프팅)</h3>
                       <p className="card-desc" style={{ marginBottom: '8px' }}>
                         에이전트가 답변 시 지켜야 할 핵심 규칙이나 페르소나를 설정하세요.
                       </p>
@@ -2268,8 +2323,7 @@ export default function App({chatbotType}) {
                       onChange={(e) => setManualPrompt(e.target.value)}
                     />
                   )}
-                </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -2279,14 +2333,14 @@ export default function App({chatbotType}) {
           {activeTab === "agent" && (
             <div className="tab-pane fade-in">
               <div className="setting-card" style={{ padding: "24px 28px 32px" }}>
-                <div className="card-header-flex">
+                <div className="card-header-flex" style={{ marginBottom: "16px" }}>
                   <div>
                     <h3 className="card-title">디지털휴먼 모델 선택</h3>
-                    <p className="card-desc">
+                    <p className="card-desc" style={{ marginBottom: 0 }}>
                       위젯에 표시될 KLEVER ONE 디지털휴먼의 외형을 선택하세요.
                     </p>
                   </div>
-                  <button className="btn-klever-sync" onClick={() => window.open('https://www.klever-one.com/studio', '_blank')}>아바타 생성 및 수정</button>
+                  <button className="btn-klever-sync" onClick={() => window.open('https://www.klever-one.com/studio', '_blank')}>휴먼 생성 및 수정</button>
                 </div>
 
                 {/* 🚀 에이전트(API 키) 선택 UI 추가 */}
@@ -2341,7 +2395,7 @@ export default function App({chatbotType}) {
               {/* 🚀 언어 및 목소리 설정 카드 추가 */}
               <div className="setting-card">
                 <h3 className="card-title">언어 및 목소리 설정</h3>
-                <p className="card-desc">
+                <p className="card-desc" style={{ marginBottom: 0 }}>
                   해당 에이전트가 주로 구사할 언어와 음성(TTS) 톤을 선택하세요.
                 </p>
 
@@ -2454,9 +2508,25 @@ export default function App({chatbotType}) {
               <div className="setting-card">
                 <h3 className="card-title">웹사이트 삽입 코드</h3>
                 <p className="card-desc">
-                  아래 코드를 복사하여 웹사이트의 <code>&lt;head&gt;</code> 또는 <code>&lt;body&gt;</code> 태그 내에 붙여넣으세요. 설정하신 값들이 적용된 위젯이 즉시 표시됩니다.
+                  사용하시는 환경에 맞는 코드를 복사하여 웹사이트에 붙여넣으세요. 설정하신 값들이 적용된 위젯이 즉시 표시됩니다.
                 </p>
-                <div className="code-container">
+
+                <div className="code-tabs">
+                  <button 
+                    className={`code-tab-btn ${codeTab === "vanilla" ? "active" : ""}`}
+                    onClick={() => setCodeTab("vanilla")}
+                  >
+                    HTML (JS/TS)
+                  </button>
+                  <button 
+                    className={`code-tab-btn ${codeTab === "react" ? "active" : ""}`}
+                    onClick={() => setCodeTab("react")}
+                  >
+                    React (JSX/TSX)
+                  </button>
+                </div>
+
+                <div className="code-container" style={{ marginTop: 0 }}>
                   <button className="btn-copy-code" onClick={handleCopyEmbedCode}>복사하기</button>
                   <pre>{getEmbedCode()}</pre>
                 </div>
@@ -2465,7 +2535,6 @@ export default function App({chatbotType}) {
           )}
         </div>
       </div>
-    
       {chatbotType === "sdk" ? (
         <DigitalHuman 
           apiKey={import.meta.env.VITE_KLEVER_API_KEY} 
@@ -2477,9 +2546,9 @@ export default function App({chatbotType}) {
           layout={layout}
           autoOff={autoOff * 60 + autoOffSec}
           avatarnum={currentAvatarNum}
+          llm = {llmType}
         />
       )}
-
       {/* 🚀 저장 확인 커스텀 모달 */}
       {isModalOpen && (
         <div className="modal-overlay">

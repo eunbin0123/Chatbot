@@ -9,7 +9,6 @@ import ValuePage from './Page/ValuePage';
 import {BasicChatbot} from './Page/BasicChatBot';
 
 
-
 export default function App() {
   return (
     <Router>
