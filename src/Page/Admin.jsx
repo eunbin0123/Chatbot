@@ -1753,14 +1753,14 @@ export default function App() {
       name: "유리 (Yuri)",
       desc: "단정하고 신뢰감 있는 안내원 스타일",
       bg: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
-      num: 5 // 👈 이 부분이 누락됨
+      num: 2 
     },
     {
       id: "chanu",
       name: "차누 (Chanu)",
       desc: "전문적이고 논리적인 컨설턴트 스타일",
       bg: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)",
-      num: 2 // 👈 추가
+      num: 1 // 👈 추가
     },
     {
       id: "sujin",
