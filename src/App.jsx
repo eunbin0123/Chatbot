@@ -8,7 +8,6 @@ import { DigitalHuman } from './Page/DigitalHuman';
 import ValuePage from './Page/ValuePage';
 import {BasicChatbot} from './Page/BasicChatBot';
 
-
 export default function App() {
   return (
     <Router>
