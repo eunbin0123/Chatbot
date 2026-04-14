@@ -21,6 +21,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm }: Bas
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const widgetRef = useRef<HTMLDivElement | null>(null);
+  const autoOffTimerRef = useRef<any>(null);
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -89,6 +90,20 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm }: Bas
       </div>
     );
   };
+
+   // ================== 자동 꺼짐 ==================
+  const resetAutoOffTimer = () => {
+    if (!autoOff) return;
+
+    if (autoOffTimerRef.current) {
+      clearTimeout(autoOffTimerRef.current);
+    }
+
+    autoOffTimerRef.current = setTimeout(() => {
+      closeWidget();
+    }, autoOff * 1000);
+  };
+
 
   const disconnectStreaming = () => {
     if (psInstanceRef.current) {
@@ -192,7 +207,7 @@ const sendMessage = async () => {
   try {
     setIsLoading(true);
     setInputText("");
-
+    resetAutoOffTimer();
     let aiResponse = "";
 
     // 1. LLM 타입에 따른 API 호출 분기
@@ -322,6 +337,8 @@ const sendMessage = async () => {
       <div id="fw-app-root">
         <div className={`fw-widget ${layout} ${isOpen ? "open" : "closed"}`}
           style={{ width: `${size.width}px`, height: `${size.height}px` }}
+          onMouseDown={resetAutoOffTimer}
+        onTouchStart={resetAutoOffTimer}
         >
           {isLoading && (
             <div className="fw-loading-overlay">
@@ -339,7 +356,7 @@ const sendMessage = async () => {
               className="fw-input"
               value={inputText}
               onFocus={handleInputFocus}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {setInputText(e.target.value); resetAutoOffTimer();}}
               onKeyDown={handleKeyEvent}
               placeholder="메시지 입력..."
               disabled={isLoading}
