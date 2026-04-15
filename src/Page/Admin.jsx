@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BasicChatbot } from "./BasicChatBot";
 import { DigitalHuman } from "./DigitalHuman";
-import  "../css/Admin.css";
+import "../css/Admin.css"; // 🚀 CSS 외부 파일 분리 적용 완료!
 import { 
   uploadFilesToVectorStore, 
   linkVectorStoreToAssistant, 
@@ -178,7 +178,7 @@ export default function App({chatbotType}) {
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
   
   // ==========================================================
-  // 🚀 UI 조작용 임시 변수 (화면에서 클릭할 때만 변함, 챗봇과 분리)
+  // 🚀 UI 조작용 임시 변수 (화면에서 클릭할 때만 변함, 챗봇 엔진과 분리됨)
   // ==========================================================
   const [uiCharacter, setUiCharacter] = useState("chanu");
   const [uiLlmType, setUiLlmType] = useState("gpt"); 
@@ -340,113 +340,119 @@ export default function App({chatbotType}) {
     }
   };
 
-  const handleUploadKnowledge = async () => {
+  // 🚀 텍스트와 파일을 하나의 지식 묶음(Bundle)으로 통합하여 업로드
+  const handleUploadKnowledge = () => {
     if (!ragInput.trim() && ragFiles.length === 0 && ragTexts.length === 0) return;
     
     setIsUploading(true);
     
-    try {
-      if (ragFiles.length > 0) {
-        // 🚀 완벽 차단: 서버 전송 전 실제 파일이 유효한지 검사
-        for (const f of ragFiles) {
-          const actualFile = f.fileObject || f.file;
-          if (!actualFile || !(actualFile instanceof Blob)) {
-            throw new Error(`[데이터 유실] '${f.name}'의 실제 파일 데이터가 없습니다. 첨부파일(x) 버튼을 눌러 지우고, 다시 첨부해주세요.`);
+    setTimeout(async () => {
+      try {
+        if (ragFiles.length > 0) {
+          // 🚀 완벽 차단: 서버 전송 전 실제 파일이 유효한지 검사
+          for (const f of ragFiles) {
+            const actualFile = f.fileObject || f.file;
+            if (!actualFile || !(actualFile instanceof Blob)) {
+              throw new Error(`[데이터 유실] '${f.name}'의 실제 파일 데이터가 없습니다. 첨부파일(x) 버튼을 눌러 지우고, 다시 첨부해주세요.`);
+            }
+          }
+
+          if (uiRagType !== "native") {
+            throw new Error("현재 파일 업로드는 Native 연동일 때만 작동합니다.");
+          }
+
+          if (uiLlmType === "gpt") {
+            if (!nativeRagId.trim()) {
+              throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
+            }
+            const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+            await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
+
+          } else if (uiLlmType === "gemini") {
+            const geminiApiKey = import.meta.env.VITE_GEMINAI_API_KEY;
+            const uploadedGeminiFiles = await uploadFilesToGemini(geminiApiKey, ragFiles);
+            setAutoAssistantId(JSON.stringify(uploadedGeminiFiles));
           }
         }
 
-        if (uiRagType !== "native") {
-          throw new Error("현재 파일 업로드는 Native 연동일 때만 작동합니다.");
-        }
-
-        if (uiLlmType === "gpt") {
-          if (!nativeRagId.trim()) {
-            throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
-          }
-          const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-          await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
-
-        } else if (uiLlmType === "gemini") {
-          const geminiApiKey = import.meta.env.VITE_GEMINAI_API_KEY;
-          const uploadedGeminiFiles = await uploadFilesToGemini(geminiApiKey, ragFiles);
-          setAutoAssistantId(JSON.stringify(uploadedGeminiFiles));
-        }
-      }
-
-      // 프론트엔드 UI 업데이트
-      const bundleItems = [];
-      const today = new Date().toISOString().split('T')[0];
-      
-      if (ragInput.trim()) {
-        const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
-        bundleItems.push({
-          id: `k_${Date.now()}_1`,
-          type: isUrl ? 'url' : 'text',
-          content: ragInput.trim()
-        });
-      }
-
-      ragTexts.forEach((item, index) => {
-        bundleItems.push({
-          id: `k_${Date.now()}_2_${index}`,
-          type: item.type,
-          content: item.content
-        });
-      });
-      
-      ragFiles.forEach(file => {
-        bundleItems.push({
-          id: file.id,
-          type: 'document',
-          content: file.name,
-          fileObject: file.fileObject || file.file // 🚀 핵심 버그 수정: 묶음(Bundle)에 저장할 때도 원본 파일을 잃어버리지 않고 유지!
-        });
-      });
-      
-      let repName = "새 지식 데이터";
-      let mainType = "document";
-      
-      if (bundleItems.length > 0) {
-        repName = bundleItems[0].content;
-        mainType = bundleItems[0].type;
+        const bundleItems = [];
+        const today = new Date().toISOString().split('T')[0];
         
-        if (bundleItems.length > 1) {
-          const shortName = repName.length > 12 ? repName.substring(0, 12) + "..." : repName;
-          repName = `${shortName} 외 ${bundleItems.length - 1}건`;
-          mainType = "collection";
+        // 1. 현재 텍스트 입력창에 작성 중이던 내용
+        if (ragInput.trim()) {
+          const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
+          bundleItems.push({
+            id: `k_${Date.now()}_1`,
+            type: isUrl ? 'url' : 'text',
+            content: ragInput.trim()
+          });
         }
-      }
 
-      const newBundle = {
-        id: `bundle_${Date.now()}`,
-        type: mainType,
-        name: repName,
-        date: today,
-        items: bundleItems
-      };
-      
-      setSavedKnowledge([newBundle, ...savedKnowledge]);
-      setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
-      
-      if (ragFiles.length > 0) {
-        const serverName = uiLlmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
-        setAlertMessage(`파일이 성공적으로 ${serverName}에 업로드 되었습니다.\n이제 대화를 시작해 보세요!`);
-      }
+        // 2. 이미 칩(엔터) 형태로 올라가 있는 텍스트들
+        ragTexts.forEach((item, index) => {
+          bundleItems.push({
+            id: `k_${Date.now()}_2_${index}`,
+            type: item.type,
+            content: item.content
+          });
+        });
+        
+        // 3. 첨부된 문서 파일들
+        ragFiles.forEach(file => {
+          bundleItems.push({
+            id: file.id,
+            type: 'document',
+            content: file.name,
+            fileObject: file.fileObject || file.file // 원본 파일 유지
+          });
+        });
+        
+        // 🚀 대표 이름 및 대표 아이콘 설정 로직
+        let repName = "새 지식 데이터";
+        let mainType = "document";
+        
+        if (bundleItems.length > 0) {
+          repName = bundleItems[0].content;
+          mainType = bundleItems[0].type;
+          
+          if (bundleItems.length > 1) {
+            const shortName = repName.length > 12 ? repName.substring(0, 12) + "..." : repName;
+            repName = `${shortName} 외 ${bundleItems.length - 1}건`;
+            mainType = "collection";
+          }
+        }
 
-      setRagInput("");
-      setRagFiles([]);
-      setRagTexts([]);
-      
-      if (!isKnowledgeListOpen) {
-          setIsKnowledgeListOpen(true);
-      }
+        const newBundle = {
+          id: `bundle_${Date.now()}`,
+          type: mainType,
+          name: repName,
+          date: today,
+          items: bundleItems
+        };
+        
+        setSavedKnowledge([newBundle, ...savedKnowledge]);
+        setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
+        
+        if (ragFiles.length > 0) {
+          const serverName = uiLlmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
+          setAlertMessage(`파일이 성공적으로 ${serverName}에 업로드 되었습니다.\n이제 대화를 시작해 보세요!`);
+        }
 
-    } catch (error) {
-      console.error("RAG Upload Error:", error);
-      setAlertMessage(error.message || "업로드 중 알 수 없는 오류가 발생했습니다.");
-    } finally {
-      setIsUploading(false);
-    }
+        setRagInput("");
+        setRagFiles([]);
+        setRagTexts([]);
+        
+        if (!isKnowledgeListOpen) {
+            setIsKnowledgeListOpen(true);
+        }
+
+      } catch (error) {
+        console.error("RAG Upload Error:", error);
+        setAlertMessage(error.message || "업로드 중 알 수 없는 오류가 발생했습니다.");
+      } finally {
+        setIsUploading(false);
+      }
+    }, 800); 
   };
 
   const handleToggleKnowledgeSelection = (id) => {
@@ -468,7 +474,7 @@ export default function App({chatbotType}) {
       if (subItem.type === 'text' || subItem.type === 'url') {
         newTexts.push({ id: subItem.id, type: subItem.type, content: subItem.content });
       } else if (subItem.type === 'document') {
-        // 🚀 핵심 버그 수정: 불러올 때 원본 파일 객체도 같이 복원!!
+        // 🚀 불러올 때 원본 파일 객체도 같이 복원!!
         newFiles.push({ id: subItem.id, name: subItem.content, fileObject: subItem.fileObject });
       }
     });
@@ -509,6 +515,7 @@ export default function App({chatbotType}) {
   const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
   const [newMcpName, setNewMcpName] = useState("");
   const [newMcpUrl, setNewMcpUrl] = useState("");
+  const [newMcpApiKey, setNewMcpApiKey] = useState("");
 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [codeTab, setCodeTab] = useState("vanilla");
@@ -531,6 +538,7 @@ export default function App({chatbotType}) {
         setSelectedMcpDetail(null);
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -549,6 +557,8 @@ export default function App({chatbotType}) {
     }
   }, [apiKeys, selectedAgentId]);
 
+  const activeAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
+
   const isFormValid = 
     apiKeys.length > 0 &&
     uiLlmType !== "" &&
@@ -557,9 +567,19 @@ export default function App({chatbotType}) {
     uiCharacter;
 
   const handleReset = () => {
-    setApiKeys([{
-      id: 1, name: "klever one", value: "sk-live-a1b2c3d4e5f6g7h8i9j0", date: "2026-04-07", character: "chanu", voice: "", language: "ko", llm: "gpt", assistantId: ""
-    }]);
+    setApiKeys([
+      {
+        id: 1,
+        name: "klever one",
+        value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
+        date: "2026-04-07",
+        character: "chanu",
+        voice: "",
+        language: "ko",
+        llm: "gpt",
+        assistantId: ""
+      }
+    ]);
     setSelectedAgentId(1);
     setUiCharacter("chanu");
     setUiLlmType("gpt");
@@ -572,8 +592,6 @@ export default function App({chatbotType}) {
     setCustomTags([]);
     setCustomTagInput("");
     setManualPrompt("");
-    setAutoAssistantId("");
-    setLastVerifiedVsId(""); 
   };
 
   const handleCopySpecificKey = (value) => {
@@ -597,34 +615,59 @@ export default function App({chatbotType}) {
 
   const confirmGenerateNewKey = () => {
     if (!newKeyNameInput.trim()) return;
+
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let newKey = "sk-live-";
     for (let i = 0; i < 24; i++) {
       newKey += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     const newKeyObj = {
-      id: Date.now(), name: newKeyNameInput.trim(), value: newKey, date: dateStr, character: "chanu", voice: "", language: "ko", llm: "gpt", assistantId: ""
+      id: Date.now(),
+      name: newKeyNameInput.trim(),
+      value: newKey,
+      date: dateStr,
+      character: "chanu",
+      voice: "",
+      language: "ko",
+      llm: "gpt",
+      assistantId: ""
     };
+    
     setApiKeys([newKeyObj, ...apiKeys]);
     setSelectedAgentId(newKeyObj.id);
     setIsNewKeyModalOpen(false);
   };
 
-  const handleReissueKey = (id) => setReissueTargetId(id);
+  const handleReissueKey = (id) => {
+    setReissueTargetId(id);
+  };
+
   const handleDeleteKey = (id) => {
-    if (apiKeys.length === 1) { setAlertMessage("최소 1개의 API 키는 유지해야 합니다."); return; }
+    if (apiKeys.length === 1) {
+      setAlertMessage("최소 1개의 API 키는 유지해야 합니다.");
+      return;
+    }
     setDeleteTargetId(id);
   };
 
   const confirmReissueKey = () => {
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let newKey = "sk-live-";
-    for (let i = 0; i < 24; i++) { newKey += chars.charAt(Math.floor(Math.random() * chars.length)); }
+    for (let i = 0; i < 24; i++) {
+      newKey += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    setApiKeys(apiKeys.map(keyObj => keyObj.id === reissueTargetId ? { ...keyObj, value: newKey, date: dateStr } : keyObj));
+
+    setApiKeys(apiKeys.map(keyObj => 
+      keyObj.id === reissueTargetId ? { ...keyObj, value: newKey, date: dateStr } : keyObj
+    ));
+    
     setReissueTargetId(null);
     setAlertMessage("API 키 재발급 요청이 정상적으로 접수되었습니다.");
   };
@@ -635,19 +678,33 @@ export default function App({chatbotType}) {
   };
 
   const confirmAddMcp = () => {
-    if (!newMcpName.trim() || !newMcpUrl.trim()) { setAlertMessage("API 이름과 엔드포인트 URL을 모두 입력해주세요."); return; }
-    const newMcp = { id: `custom_mcp_${Date.now()}`, name: newMcpName.trim(), desc: newMcpUrl.trim(), type: "custom", active: true, apiKey: "", parameters: [] };
+    if (!newMcpName.trim() || !newMcpUrl.trim() || !newMcpApiKey.trim()) {
+      setAlertMessage("API 이름, 엔드포인트 URL, API 키를 모두 입력해주세요.");
+      return;
+    }
+    const newMcp = {
+      id: `custom_mcp_${Date.now()}`,
+      name: newMcpName.trim(),
+      desc: newMcpUrl.trim(),
+      type: "custom",
+      active: true,
+      apiKey: newMcpApiKey.trim(),
+      parameters: []
+    };
     setMcpList([...mcpList, newMcp]);
     setIsMcpModalOpen(false);
     setNewMcpName("");
     setNewMcpUrl("");
+    setNewMcpApiKey("");
   };
 
-  const handleSaveClick = () => setIsModalOpen(true);
-  
+  const handleSaveClick = () => {
+    setIsModalOpen(true);
+  };
+
   // =====================================================================
   // 🚀 핵심 변경점: '저장(적용)' 버튼 클릭 시, 선택된 API 키 객체 안에
-  // 캐릭터, LLM, Assistant ID 값을 모두 값으로 밀어넣습니다.
+  // UI에서 조작하던 캐릭터, LLM, Assistant ID 값을 모두 값으로 밀어넣습니다.
   // =====================================================================
   const confirmSave = () => { 
     setIsModalOpen(false); 
@@ -664,43 +721,89 @@ export default function App({chatbotType}) {
     setAlertMessage("성공적으로 적용되었습니다!"); 
   };
   // =====================================================================
-  
-  const cancelSave = () => setIsModalOpen(false);
-  const handleExitClick = () => setIsExitModalOpen(true);
-  const confirmExit = () => { setIsExitModalOpen(false); window.open('https://www.klever-one.com/', '_blank'); };
-  const cancelExit = () => setIsExitModalOpen(false);
+
+  const cancelSave = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleExitClick = () => {
+    setIsExitModalOpen(true);
+  };
+
+  const confirmExit = () => {
+    setIsExitModalOpen(false);
+    window.open('https://www.klever-one.com/', '_blank');
+  };
+
+  const cancelExit = () => {
+    setIsExitModalOpen(false);
+  };
 
   const getEmbedCode = () => {
     const totalSeconds = (parseInt(autoOff) || 0) * 60 + (parseInt(autoOffSec) || 0);
+    
     if (codeTab === "react") {
       return `// npm install @klever-one/react\n\nimport { KleverWidget } from '@klever-one/react';\n\nexport default function App() {\n  return (\n    <>\n      {/* 다른 컴포넌트들... */}\n      <KleverWidget \n        clientId="YOUR_CLIENT_ID" // 발급받은 클라이언트 API 키\n        layout="${layout}"\n        autoOff={${totalSeconds}}\n      />\n    </>\n  );\n}`;
     }
+
     return `\n<script>\n  (function(w, d, s, o, f, js, fjs) {\n    w['KleverOneWidget'] = o; w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };\n    js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];\n    js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);\n  }(window, document, 'script', 'kw', 'https://cdn.klever-one.com/widget.js'));\n  \n  // 위젯 초기화 및 설정 적용\n  kw('init', {\n    clientId: 'YOUR_CLIENT_ID', // 발급받은 클라이언트 API 키\n    layout: '${layout}',\n    autoOff: ${totalSeconds}\n  });\n</script>`;
+  };
+
+  const handleCopyEmbedCode = () => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = getEmbedCode();
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setAlertMessage("삽입 코드가 클립보드에 복사되었습니다!");
+    } catch (err) {
+      console.error("복사 실패", err);
+    }
   };
 
   const getRagOptions = () => {
     const options = [{ value: "none", label: "사용 안 함" }];
-    if (uiLlmType === "gpt") { options.push({ value: "native", label: "OpenAI Vector Store" }); } 
-    else if (uiLlmType === "gemini") { options.push({ value: "native", label: "Google AI Studio RAG" }); } 
-    else if (uiLlmType === "llamon") { options.push({ value: "native", label: "LLaMON RAG AI" }); }
+    
+    if (uiLlmType === "gpt") {
+      options.push({ value: "native", label: "OpenAI Vector Store" });
+    } else if (uiLlmType === "gemini") {
+      options.push({ value: "native", label: "Google AI Studio RAG" });
+    } else if (uiLlmType === "llamon") {
+      options.push({ value: "native", label: "LLaMON RAG AI" });
+    }
+    
     return options;
   };
 
   const togglePromptTag = (tagId) => {
-    if (selectedTags.includes(tagId)) setSelectedTags(selectedTags.filter(id => id !== tagId));
-    else setSelectedTags([...selectedTags, tagId]);
+    if (selectedTags.includes(tagId)) {
+      setSelectedTags(selectedTags.filter(id => id !== tagId));
+    } else {
+      setSelectedTags([...selectedTags, tagId]);
+    }
   };
 
   const handleAddCustomTag = () => {
     const trimmed = customTagInput.trim();
     if (!trimmed) return;
+    
     const tagId = `custom_${Date.now()}`;
-    setCustomTags([...customTags, { id: tagId, label: trimmed }]);
+    const newTag = { id: tagId, label: trimmed };
+    
+    setCustomTags([...customTags, newTag]);
     setSelectedTags([...selectedTags, tagId]);
     setCustomTagInput("");
   };
 
-  const handleCustomTagKeyDown = (e) => { if (e.key === 'Enter') handleAddCustomTag(); };
+  const handleCustomTagKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddCustomTag();
+    }
+  };
+
   const handleRemoveCustomTag = (e, tagId) => {
     e.stopPropagation();
     setCustomTags(customTags.filter(tag => tag.id !== tagId));
@@ -708,29 +811,57 @@ export default function App({chatbotType}) {
   };
 
   const promptTagOptions = [
-    { id: "no_politics", label: "정치" }, { id: "no_religion", label: "종교" }, { id: "no_social_controversy", label: "사회적 논란" },
-    { id: "no_profanity", label: "비속어 및 혐오 표현" }, { id: "no_competitors", label: "경쟁사 언급" }, { id: "no_personal_info", label: "개인정보 요구" },
-    { id: "polite_tone", label: "존댓말" }, { id: "require_citation", label: "출처 표기" }, { id: "empathy_first", label: "공감과 위로" },
+    { id: "no_politics", label: "정치" },
+    { id: "no_religion", label: "종교" },
+    { id: "no_social_controversy", label: "사회적 논란" },
+    { id: "no_profanity", label: "비속어 및 혐오 표현" },
+    { id: "no_competitors", label: "경쟁사 언급" },
+    { id: "no_personal_info", label: "개인정보 요구" },
+    { id: "polite_tone", label: "존댓말" },
+    { id: "require_citation", label: "출처 표기" },
+    { id: "empathy_first", label: "공감과 위로" },
   ];
 
   const digitalHumans = [
-    { id: "yuri", name: "유리 (Yuri)", desc: "단정하고 신뢰감 있는 안내원 스타일", bg: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", num: 2 },
-    { id: "chanu", name: "차누 (Chanu)", desc: "전문적이고 논리적인 컨설턴트 스타일", bg: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)", num: 1 },
-    { id: "sujin", name: "마이클 (Michael)", desc: "밝고 캐주얼한 일상 대화 스타일", bg: "linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)", num: 4 }
+    {
+      id: "yuri",
+      name: "유리 (Yuri)",
+      desc: "단정하고 신뢰감 있는 안내원 스타일",
+      bg: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+      num: 2
+    },
+    {
+      id: "chanu",
+      name: "차누 (Chanu)",
+      desc: "전문적이고 논리적인 컨설턴트 스타일",
+      bg: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)",
+      num: 1
+    },
+    {
+      id: "sujin",
+      name: "마이클 (Michael)",
+      desc: "밝고 캐주얼한 일상 대화 스타일",
+      bg: "linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)",
+      num: 4
+    }
   ];
 
   const layoutOptions = [
-    { id: "bottom-right", label: "우측 하단 (기본)", boxClass: "br" }, { id: "bottom-left", label: "좌측 하단", boxClass: "bl" },
-    { id: "center", label: "화면 중앙 팝업", boxClass: "center" }, { id: "top-right", label: "우측 상단", boxClass: "tr" }, { id: "top-left", label: "좌측 상단", boxClass: "tl" },
+    { id: "bottom-right", label: "우측 하단 (기본)", boxClass: "br" },
+    { id: "bottom-left", label: "좌측 하단", boxClass: "bl" },
+    { id: "center", label: "화면 중앙 팝업", boxClass: "center" },
+    { id: "top-right", label: "우측 상단", boxClass: "tr" },
+    { id: "top-left", label: "좌측 상단", boxClass: "tl" },
   ];
 
-  // 챗봇 컴포넌트에 넘길 값들 계산
+  // 🚀 챗봇 컴포넌트에 넘길 값들 계산
   const savedAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
   const selectedHuman = digitalHumans.find(human => human.id === uiCharacter);
-  const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; 
+  const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; // 🚀 아바타는 uiCharacter 기준으로 바로바로 바뀜
 
   return (
     <div className={`app-root ${!isDarkMode ? "light-mode" : ""}`}>
+      
       <div className="agent-settings-container">
         <div className="view-header">
           <div className="title-area">
@@ -1089,6 +1220,7 @@ export default function App({chatbotType}) {
                                       onClick={() => handleToggleKnowledgeSelection(item.id)}
                                     >
                                       <div className="knowledge-info">
+                                        {/* 🚀 커스텀 다중선택 체크박스 */}
                                         <input 
                                           type="checkbox" 
                                           className="knowledge-checkbox" 
@@ -1101,6 +1233,7 @@ export default function App({chatbotType}) {
                                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                           </svg>
                                         )}
+                                        {/* 🚀 여러 개 항목이 묶였을 경우 표시할 폴더/컬렉션 아이콘 */}
                                         {item.type === 'collection' && (
                                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -1148,6 +1281,7 @@ export default function App({chatbotType}) {
                             )}
                           </div>
 
+                          {/* 🚀 오른쪽 메인 영역: 신규 데이터 학습 폼 (ChatGPT 스타일) */}
                           <div className="rag-main-content">
                             <label style={{ display: "block", marginBottom: "8px" }}>
                               신규 데이터 학습 (텍스트, URL, 파일)
@@ -1520,6 +1654,7 @@ export default function App({chatbotType}) {
           )}
         </div>
       </div>
+
        {chatbotType === "sdk" ? (
         <DigitalHuman 
           apiKey={import.meta.env.VITE_KLEVER_API_KEY} 
@@ -1537,11 +1672,12 @@ export default function App({chatbotType}) {
           /* 1. 아바타: 변경 즉시 반영 (화면의 uiCharacter 사용) */
           avatarnum={currentAvatarNum}       
           
-          /* 2. LLM 엔진: 저장해야만 반영 (apiKeys에 있는 savedAgent 사용) */
+          /* 2. LLM 엔진 및 Assistant: 저장해야만 반영 (apiKeys에 있는 savedAgent 사용) */
           llm={savedAgent.llm || "gpt"}               
           assistantId={savedAgent.assistantId || ""} 
         />
       )}
+
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -1628,6 +1764,16 @@ export default function App({chatbotType}) {
                   value={newMcpUrl}
                   onChange={(e) => setNewMcpUrl(e.target.value)}
                   placeholder="https://apis.data.go.kr/..."
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "#a0aec0", marginBottom: "4px", display: "block" }}>API 키</label>
+                <input
+                  type="text"
+                  className="custom-input"
+                  value={newMcpApiKey}
+                  onChange={(e) => setNewMcpApiKey(e.target.value)}
+                  placeholder="예: Bearer sk-..."
                   onKeyDown={(e) => {
                     if (e.key === "Enter") confirmAddMcp();
                   }}
@@ -1641,7 +1787,6 @@ export default function App({chatbotType}) {
           </div>
         </div>
       )}
-
       {alertMessage && (
         <div className="modal-overlay">
           <div className="modal-box">
