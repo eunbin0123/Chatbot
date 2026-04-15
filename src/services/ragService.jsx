@@ -1,28 +1,40 @@
 // src/services/ragService.js
 
 // =========================================================
-// GPT
+// GPT 연동 로직
 // =========================================================
 
 // 1. 파일들을 Vector Store에 업로드하는 함수
 export const uploadFilesToVectorStore = async (apiKey, vectorStoreId, files) => {
   for (const ragFile of files) {
+    // 🚀 완벽 차단: fileObject와 file을 모두 검사해서 실제 알맹이를 가져옵니다.
+    const actualFile = ragFile.fileObject || ragFile.file;
+
+    if (!actualFile || !(actualFile instanceof Blob)) {
+      throw new Error(`파일 데이터 유실: '${ragFile.name}' 파일이 올바르지 않습니다. 다시 첨부해주세요.`);
+    }
+
     // 1-1. 파일 업로드
     const formData = new FormData();
     formData.append("purpose", "assistants");
-    formData.append("file", ragFile.fileObject);
+    // 🚀 완벽 차단: 세 번째 인자로 파일 이름을 명시해서 안전하게 보냅니다!
+    formData.append("file", actualFile, ragFile.name);
 
     const fileUploadRes = await fetch("https://api.openai.com/v1/files", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
+        // 절대 "Content-Type" 헤더를 추가하지 마세요. 브라우저가 자동 계산합니다.
       },
       body: formData,
     });
 
     if (!fileUploadRes.ok) {
-      throw new Error(`파일 업로드 실패: ${ragFile.name}`);
+      const errData = await fileUploadRes.json().catch(() => ({}));
+      console.error("OpenAI 파일 업로드 에러:", errData);
+      throw new Error(`파일 업로드 실패 (${ragFile.name}): ${errData.error?.message || '알 수 없는 서버 에러'}`);
     }
+    
     const fileData = await fileUploadRes.json();
 
     // 1-2. Vector Store에 파일 연동
@@ -37,7 +49,8 @@ export const uploadFilesToVectorStore = async (apiKey, vectorStoreId, files) => 
     });
 
     if (!vectorStoreRes.ok) {
-      throw new Error(`Vector Store 연동 실패: ${ragFile.name}`);
+      const vsError = await vectorStoreRes.json().catch(() => ({}));
+      throw new Error(`Vector Store 연동 실패 (${ragFile.name}): ${vsError.error?.message || '알 수 없는 오류'}`);
     }
   }
 };
@@ -52,7 +65,6 @@ export const verifyOrCreateAssistant = async (apiKey, vectorStoreId) => {
   });
   const assistantsData = await assistantsRes.json();
 
-  // 기존 Assistant 찾기
   let matchedAssistant = assistantsData.data?.find(ast =>
     ast.tool_resources?.file_search?.vector_store_ids?.includes(vectorStoreId)
   );
@@ -61,7 +73,6 @@ export const verifyOrCreateAssistant = async (apiKey, vectorStoreId) => {
     return { id: matchedAssistant.id, isNew: false };
   } 
   
-  // 없으면 새로 생성
   const createRes = await fetch("https://api.openai.com/v1/assistants", {
     method: "POST",
     headers: {
@@ -106,62 +117,41 @@ export const linkVectorStoreToAssistant = async (apiKey, vectorStoreId) => {
 };
 
 // =========================================================
-// Gemini
+// Gemini 연동 로직
 // =========================================================
 
 export const uploadFilesToGemini = async (apiKey, files) => {
   const uploadedFilesInfo = [];
   
   for (const ragFile of files) {
-    const file = ragFile.fileObject;
-    // 파일 형식이 없을 경우를 대비한 기본값
-    const mimeType = file.type || "text/plain";
-    const numBytes = file.size.toString();
-    const displayName = file.name;
+    // 🚀 완벽 차단: 여기서도 실제 알맹이를 안전하게 가져옵니다.
+    const actualFile = ragFile.fileObject || ragFile.file;
 
-    // [STEP 1] 제미나이 서버에 "나 파일 올릴거야, 자리 만들어줘" 하고 요청 (URL 발급받기)
-    const startRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`, {
+    if (!actualFile || !(actualFile instanceof Blob)) {
+      throw new Error(`파일 데이터 유실: '${ragFile.name}' 파일이 올바르지 않습니다. 다시 첨부해주세요.`);
+    }
+
+    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
+    const mimeType = actualFile.type || "text/plain";
+
+    const res = await fetch(uploadUrl, {
       method: "POST",
       headers: {
-        "X-Goog-Upload-Protocol": "resumable",
-        "X-Goog-Upload-Command": "start",
-        "X-Goog-Upload-Header-Content-Length": numBytes,
+        "X-Goog-Upload-Command": "upload, finalize",
+        "X-Goog-Upload-Header-Content-Length": actualFile.size.toString(),
         "X-Goog-Upload-Header-Content-Type": mimeType,
-        "Content-Type": "application/json"
+        "Content-Type": mimeType
       },
-      body: JSON.stringify({ file: { display_name: displayName } })
+      body: actualFile
     });
 
-    if (!startRes.ok) {
-      const err = await startRes.text();
-      throw new Error(`Gemini 업로드 준비 실패: ${err}`);
+    if (!res.ok) {
+      const errData = await res.text();
+      throw new Error(`Gemini 업로드 실패: ${actualFile.name} - ${errData}`);
     }
-
-    // 응답 헤더에서 우리가 실제 파일을 전송해야 할 고유 URL을 쏙 빼옵니다.
-    const uploadUrl = startRes.headers.get("x-goog-upload-url");
-    if (!uploadUrl) {
-      throw new Error("Gemini 서버로부터 업로드 URL을 받지 못했습니다.");
-    }
-
-    // [STEP 2] 발급받은 URL로 실제 파일(바이너리) 데이터 전송
-    const uploadRes = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        "Content-Length": numBytes,
-        "X-Goog-Upload-Offset": "0",
-        "X-Goog-Upload-Command": "upload, finalize"
-      },
-      body: file // 파일 그 자체를 냅다 던집니다.
-    });
-
-    if (!uploadRes.ok) {
-      const err = await uploadRes.text();
-      throw new Error(`Gemini 파일 전송 실패: ${err}`);
-    }
-
-    const data = await uploadRes.json();
     
-    // 업로드 성공 시 반환되는 파일 이름, uri, 타입을 배열에 차곡차곡 저장
+    const data = await res.json();
+    
     uploadedFilesInfo.push({
       name: data.file.name,
       uri: data.file.uri,

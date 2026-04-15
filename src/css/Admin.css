@@ -1,3 +1,5 @@
+
+/* 🚀 미리보기 화면 전체 배경색을 어둡게 맞춤 */
 html, body {
   margin: 0;
   padding: 0;
@@ -10,7 +12,6 @@ html, body {
   min-height: 100vh;
   background-color: #0f1115;
   transition: background-color 0.3s ease;
-  /* flex 속성 제거로 레이아웃 찌그러짐 해결 */
 }
 
 .agent-settings-container,
@@ -19,7 +20,7 @@ html, body {
 }
 
 .agent-settings-container {
-  width: 100%; /* 🚀 컨테이너 폭을 명시하여 넓게 펴줌 */
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
   color: #e2e8f0;
@@ -102,14 +103,8 @@ html, body {
   animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* 공통 카드 */
@@ -163,7 +158,6 @@ html, body {
   gap: 20px;
 }
 
-/* 반응형: 화면 작아지면 2개, 1개로 줄어듦 */
 @media (max-width: 768px) {
   .character-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -202,18 +196,12 @@ html, body {
   height: 100%;
 }
 
-/* 이미지 하단 검은색 그라데이션 및 정보 */
 .character-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(
-    to top,
-    rgba(26, 29, 36, 1) 10%,
-    rgba(26, 29, 36, 0.7) 60%,
-    transparent 100%
-  );
+  background: linear-gradient(to top, rgba(26, 29, 36, 1) 10%, rgba(26, 29, 36, 0.7) 60%, transparent 100%);
   padding: 24px 20px 20px 20px;
   display: flex;
   justify-content: space-between;
@@ -238,7 +226,6 @@ html, body {
   word-break: keep-all;
 }
 
-/* 우측 하단 선택하기 버튼 */
 .btn-character {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -296,7 +283,6 @@ html, body {
   border-color: #00c6ff;
 }
 
-/* 🚀 셀렉트 박스 화살표 커스텀 (우측 마진 10px 적용) */
 .custom-select {
   appearance: none;
   -webkit-appearance: none;
@@ -322,7 +308,7 @@ html, body {
   font-size: 14px;
 }
 
-/* API 키 관리 리스트 (다중 API) */
+/* API 키 관리 리스트 */
 .api-key-list {
   display: flex;
   flex-direction: column;
@@ -417,27 +403,27 @@ html, body {
 /* 라디오 */
 .radio-group {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 🚀 2열에서 4열로 변경 (한 줄로 나열) */
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
 @media (max-width: 900px) {
   .radio-group {
-    grid-template-columns: repeat(2, 1fr); /* 중간 화면에서는 2열 */
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 600px) {
   .radio-group {
-    grid-template-columns: 1fr; /* 모바일에서는 1열 */
+    grid-template-columns: 1fr;
   }
 }
 
 .radio-card {
   display: flex;
   align-items: center;
-  gap: 12px; /* 🚀 간격을 늘려 라디오 버튼과 글자 사이의 여백 추가 */
-  padding: 12px 14px; /* 🚀 패딩을 살짝 줄여 한 줄에 잘 들어가게 함 */
+  gap: 12px;
+  padding: 12px 14px;
   background-color: #0f1115;
   border: 1px solid #4a5568;
   border-radius: 8px;
@@ -451,15 +437,23 @@ html, body {
   border-color: #00c6ff;
   background-color: rgba(0, 198, 255, 0.05);
 }
+.radio-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .radio-card input[type="radio"] {
   margin: 0;
   cursor: pointer;
   accent-color: #00c6ff;
 }
+.radio-card input[type="radio"]:disabled {
+  cursor: not-allowed;
+}
 .radio-label {
-  font-size: 13px; /* 🚀 폰트 사이즈를 조금 줄임 */
+  font-size: 13px;
   color: #e2e8f0;
-  white-space: nowrap; /* 🚀 텍스트 줄바꿈 방지 */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -477,10 +471,8 @@ html, body {
   box-sizing: border-box;
 }
 
-/* 🚀 미리보기 화면 전체 배경색을 어둡게 맞춤 */
-
 /* ==================================================
-   🚀 에이전트 선택 박스 (탭 2)
+   🚀 에이전트 선택 박스
 ================================================== */
 .agent-select-box {
   margin-bottom: 24px;
@@ -499,7 +491,8 @@ html, body {
 
 /* ================== RAG 학습 폼 요소 (통합형) ================== */
 .unified-rag-box {
-  background-color: #0f1115;
+  position: relative;
+  background-color: #11141a;
   border: 1px dashed #4a5568;
   border-radius: 12px;
   display: flex;
@@ -507,6 +500,7 @@ html, body {
   overflow: hidden;
   transition: all 0.2s;
   margin-top: 8px;
+  min-height: 120px;
 }
 .unified-rag-box:hover,
 .unified-rag-box:focus-within {
@@ -518,15 +512,21 @@ html, body {
   background-color: rgba(0, 198, 255, 0.1);
   border-width: 2px;
 }
+.unified-rag-box.uploading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 🚀 새롭게 개선된 입력창 (ChatGPT 스타일) */
 .unified-rag-textarea {
   width: 100%;
-  min-height: 60px; /* 🚀 100px에서 60px로 축소 */
-  padding: 16px;
+  min-height: 80px;
+  padding: 16px 16px 48px 16px; /* 하단 버튼을 위한 여백 */
   background: transparent;
   border: none;
   color: #e2e8f0;
   font-size: 14px;
-  resize: vertical;
+  resize: none;
   outline: none;
   font-family: inherit;
 }
@@ -534,50 +534,57 @@ html, body {
   color: #718096;
   line-height: 1.5;
 }
-.unified-rag-actions {
+
+/* 🚀 하단 버튼 영역 */
+.unified-rag-bottom {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px 12px;
 }
-.btn-attach {
+
+.btn-attach-new {
   display: flex;
   align-items: center;
   gap: 6px;
   background: transparent;
   color: #a0aec0;
-  border: 1px solid transparent;
+  border: none;
   font-size: 13px;
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: 6px;
   transition: all 0.2s;
 }
-.btn-attach:hover {
+.btn-attach-new:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #4a5568;
   color: #fff;
 }
-.btn-add-rag {
+
+.btn-submit-new {
   background-color: #2d3748;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  color: #fff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-add-rag:hover:not(:disabled) {
+.btn-submit-new:hover:not(:disabled) {
   background-color: #00c6ff;
-  border-color: #00c6ff;
-  color: #fff;
 }
-.btn-add-rag:disabled {
-  opacity: 0.6;
+.btn-submit-new:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
+
 .rag-files-preview {
   padding: 0 16px 12px;
   display: flex;
@@ -617,6 +624,163 @@ html, body {
   color: #e53e3e;
 }
 
+/* 🚀 저장된 지식 목록 리스트 & 2단 레이아웃 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.rag-layout-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 0;
+}
+.rag-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px dashed #4a5568;
+  padding-right: 24px;
+  transition: width 0.3s ease, padding 0.3s ease;
+}
+.rag-sidebar.collapsed {
+  width: 32px;
+  padding-right: 12px;
+  align-items: center;
+}
+.rag-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; 
+}
+
+@media (max-width: 768px) {
+  .rag-layout-container {
+    flex-direction: column-reverse; 
+  }
+  .rag-sidebar {
+    width: 100%;
+    border-right: none;
+    border-top: 1px dashed #4a5568;
+    padding-right: 0;
+    padding-top: 24px;
+  }
+  .rag-sidebar.collapsed {
+    width: 100%;
+    padding-right: 0;
+    align-items: flex-start;
+  }
+}
+
+.knowledge-list-wrap {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.knowledge-list-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+.knowledge-list-wrap::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.knowledge-list-wrap::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 10px;
+}
+
+/* 🚀 다중 선택용 체크박스 */
+.knowledge-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 18px;
+  height: 18px;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background-color: #0f1115;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+.knowledge-checkbox:checked {
+  background-color: #00c6ff;
+  border-color: #00c6ff;
+}
+.knowledge-checkbox:checked::after {
+  content: '✔';
+  color: #fff;
+  font-size: 11px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.knowledge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #0b0d10;
+  border: 1px solid #4a5568;
+  padding: 12px 16px;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.knowledge-item:hover {
+  border-color: #718096;
+}
+.knowledge-item.selected {
+  border-color: rgba(0, 198, 255, 0.5);
+  background-color: rgba(0, 198, 255, 0.05);
+}
+.knowledge-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+.knowledge-icon {
+  color: #a0aec0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d3748;
+  padding: 8px;
+  border-radius: 6px;
+}
+.knowledge-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.knowledge-name {
+  font-size: 13px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+.knowledge-date {
+  font-size: 11px;
+  color: #718096;
+  margin-top: 4px;
+}
+
 /* ================== 태그 프롬프팅 폼 요소 ================== */
 .prompt-tags-wrap {
   display: flex;
@@ -648,7 +812,6 @@ html, body {
   color: #00c6ff;
   font-weight: 500;
 }
-
 .prompt-tag-remove {
   background: transparent;
   border: none;
@@ -777,7 +940,6 @@ html, body {
   color: #00c6ff;
 }
 
-/* 🚀 카드 내 구분선 (Divider) */
 .card-divider {
   border: none;
   border-top: 1px dashed #4a5568;
@@ -900,38 +1062,11 @@ html, body {
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 198, 255, 0.4);
 }
-
-.widget-box.br {
-  width: 20px;
-  height: 35px;
-  bottom: 6px;
-  right: 6px;
-}
-.widget-box.bl {
-  width: 20px;
-  height: 35px;
-  bottom: 6px;
-  left: 6px;
-}
-.widget-box.tr {
-  width: 20px;
-  height: 35px;
-  top: 6px;
-  right: 6px;
-}
-.widget-box.tl {
-  width: 20px;
-  height: 35px;
-  top: 6px;
-  left: 6px;
-}
-.widget-box.center {
-  width: 35px;
-  height: 45px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
+.widget-box.br { width: 20px; height: 35px; bottom: 6px; right: 6px; }
+.widget-box.bl { width: 20px; height: 35px; bottom: 6px; left: 6px; }
+.widget-box.tr { width: 20px; height: 35px; top: 6px; right: 6px; }
+.widget-box.tl { width: 20px; height: 35px; top: 6px; left: 6px; }
+.widget-box.center { width: 35px; height: 45px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
 /* ================== 버튼 ================== */
 button {
@@ -1015,7 +1150,7 @@ button {
   border-radius: 16px;
   padding: 32px;
   width: 90%;
-  max-width: 360px;
+  max-width: 460px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   text-align: center;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1058,7 +1193,6 @@ button {
   gap: 12px;
   justify-content: center;
 }
-
 .modal-buttons button {
   flex: 1;
   padding: 12px 0;
@@ -1188,13 +1322,17 @@ button {
 .light-mode .unified-rag-box { background-color: #ffffff; border-color: #cbd5e0; }
 .light-mode .unified-rag-box:hover { background-color: rgba(0, 114, 255, 0.02); }
 .light-mode .unified-rag-textarea { color: #1a202c; }
-.light-mode .btn-attach { color: #4a5568; }
-.light-mode .btn-attach:hover { background: #edf2f7; color: #1a202c; }
+.light-mode .btn-attach-new { color: #4a5568; }
+.light-mode .btn-attach-new:hover { background: #edf2f7; color: #1a202c; }
 .light-mode .file-chip { background: #edf2f7; border-color: #cbd5e0; color: #4a5568; }
-.light-mode .prompt-tag { background-color: #ffffff; border-color: #cbd5e0; color: #4a5568; }
-.light-mode .prompt-tag:hover { border-color: #718096; color: #1a202c; }
-.light-mode .prompt-tag.active { background-color: rgba(0, 114, 255, 0.1); border-color: #0072ff; color: #0072ff; }
-.light-mode .mode-toggle-group { background-color: #f7fafc; border-color: #cbd5e0; }
+.light-mode .rag-sidebar { border-color: #cbd5e0; }
+.light-mode .knowledge-item { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .knowledge-name { color: #1a202c; }
+.light-mode .knowledge-icon { background: #edf2f7; color: #4a5568; }
+.light-mode .knowledge-checkbox { background-color: #ffffff; border-color: #cbd5e0; }
+.light-mode .knowledge-checkbox:checked { background-color: #0072ff; border-color: #0072ff; }
+.light-mode .knowledge-list-wrap::-webkit-scrollbar-track { background: #edf2f7; }
+.light-mode .knowledge-list-wrap::-webkit-scrollbar-thumb { background: #cbd5e0; }
 .light-mode .mode-toggle-btn { color: #718096; }
 .light-mode .mode-toggle-btn.active { background-color: #ffffff; color: #0072ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .light-mode .custom-input, .light-mode .custom-select, .light-mode .manual-prompt-textarea { background-color: #ffffff; border-color: #cbd5e0; color: #1a202c; }
@@ -1208,12 +1346,9 @@ button {
 .light-mode .code-container { background-color: #f7fafc; border-color: #cbd5e0; }
 .light-mode .code-container pre { color: #2d3748; }
 .light-mode .btn-copy-code { background-color: #ffffff; color: #4a5568; border-color: #cbd5e0; }
-
-/* 라이트 모드 삽입 코드 탭 스타일 */
 .light-mode .code-tab-btn { border-color: #cbd5e0; color: #718096; }
 .light-mode .code-tab-btn:hover { background: #edf2f7; color: #1a202c; }
 .light-mode .code-tab-btn.active { background: rgba(0, 114, 255, 0.05); border-color: #0072ff; color: #0072ff; }
-
 .light-mode .modal-box { background-color: #ffffff; border-color: #e2e8f0; }
 .light-mode .modal-title { color: #1a202c; }
 .light-mode .modal-desc { color: #4a5568; }
@@ -1240,3 +1375,45 @@ button {
 .btn-icon-theme:hover { background: rgba(255, 255, 255, 0.1); }
 .light-mode .btn-icon-theme { border-color: #cbd5e0; color: #4a5568; }
 .light-mode .btn-icon-theme:hover { background: #edf2f7; }
+
+/* 🚀 UI 언어 선택 드롭다운 스타일 */
+.ui-lang-select {
+  background-color: transparent;
+  color: #a0aec0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  padding-right: 28px;
+  transition: all 0.2s;
+}
+.ui-lang-select:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+.ui-lang-select option {
+  background-color: #1a1d24;
+  color: #e2e8f0;
+}
+.light-mode .ui-lang-select {
+  border-color: #cbd5e0;
+  color: #4a5568;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+.light-mode .ui-lang-select:hover {
+  background-color: #edf2f7;
+  color: #1a202c;
+}
+.light-mode .ui-lang-select option {
+  background-color: #fff;
+  color: #1a202c;
+}
