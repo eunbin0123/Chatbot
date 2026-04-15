@@ -157,7 +157,7 @@ const i18n = {
   }
 };
 
-export default function App({chatbotType}) {
+export default function Admin({chatbotType}) {
   const [uiLang, setUiLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("agent");
 
@@ -1764,6 +1764,9 @@ export default function App({chatbotType}) {
                   value={newMcpUrl}
                   onChange={(e) => setNewMcpUrl(e.target.value)}
                   placeholder="https://apis.data.go.kr/..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") confirmAddMcp();
+                  }}
                 />
               </div>
               <div>
@@ -1787,6 +1790,7 @@ export default function App({chatbotType}) {
           </div>
         </div>
       )}
+
       {alertMessage && (
         <div className="modal-overlay">
           <div className="modal-box">

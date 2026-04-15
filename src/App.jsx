@@ -7,6 +7,7 @@ import Customize from './Page/Customize';
 import { DigitalHuman } from './Page/DigitalHuman';
 import ValuePage from './Page/ValuePage';
 import {BasicChatbot} from './Page/BasicChatBot';
+import KleverOne from './page/Metabuild';
 
 export default function App() {
   return (
@@ -23,7 +24,8 @@ export default function App() {
         <Route path="/customize" element={<Customize />} />
         <Route path="/value" element={<ValuePage />} />
         <Route path="/basicadmin" element={<Admin chatbotType = "basic"/>} />
-
+        <Route path="/kleverone" element={<KleverOne />} />
+        
       </Routes>
     </Router>
   );
