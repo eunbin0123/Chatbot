@@ -161,20 +161,29 @@ export default function App({chatbotType}) {
   const [uiLang, setUiLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("agent");
 
+  // 🚀 1. 기본값(초기화) 상태 세팅: chanu(아바타 1), gpt, 어시스턴트 없음
   const [apiKeys, setApiKeys] = useState([
     {
       id: 1,
       name: "klever one",
       value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
       date: "2026-04-07",
-      character: "", 
+      character: "chanu", 
       voice: "",     
-      language: "ko"
+      language: "ko",
+      llm: "gpt",
+      assistantId: ""
     }
   ]);
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
-  const [llmType, setLlmType] = useState(""); 
-  const [ragType, setRagType] = useState("none"); 
+  
+  // ==========================================================
+  // 🚀 UI 조작용 임시 변수 (화면에서 클릭할 때만 변함, 챗봇과 분리)
+  // ==========================================================
+  const [uiCharacter, setUiCharacter] = useState("chanu");
+  const [uiLlmType, setUiLlmType] = useState("gpt"); 
+  const [uiRagType, setUiRagType] = useState("none"); 
+  // ==========================================================
 
   const [customLlmUrl, setCustomLlmUrl] = useState("");
   const [nativeRagId, setNativeRagId] = useState("");
@@ -243,9 +252,27 @@ export default function App({chatbotType}) {
     }
   ]);
 
+  // 에이전트(API 키) 드롭다운 변경 시, UI 값들을 해당 에이전트에 저장된 값으로 동기화
+  useEffect(() => {
+    const agent = apiKeys.find(a => a.id === selectedAgentId);
+    if (agent) {
+       setUiCharacter(agent.character || "chanu");
+       setUiLlmType(agent.llm || "gpt");
+       if (agent.assistantId) {
+         setUiRagType("native");
+         setAutoAssistantId(agent.assistantId);
+         setNativeRagId(agent.assistantId);
+       } else {
+         setUiRagType("none");
+         setAutoAssistantId("");
+         setNativeRagId("");
+       }
+    }
+  }, [selectedAgentId]);
+
   const handleVectorIdFinish = async () => {
     const currentId = nativeRagId.trim();
-    if (!currentId || llmType !== "gpt" || ragType !== "native") return;
+    if (!currentId || uiLlmType !== "gpt" || uiRagType !== "native") return;
     if (currentId === lastVerifiedVsId) return; 
 
     setIsUploading(true); 
@@ -328,18 +355,18 @@ export default function App({chatbotType}) {
           }
         }
 
-        if (ragType !== "native") {
+        if (uiRagType !== "native") {
           throw new Error("현재 파일 업로드는 Native 연동일 때만 작동합니다.");
         }
 
-        if (llmType === "gpt") {
+        if (uiLlmType === "gpt") {
           if (!nativeRagId.trim()) {
             throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
           }
           const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
           await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
 
-        } else if (llmType === "gemini") {
+        } else if (uiLlmType === "gemini") {
           const geminiApiKey = import.meta.env.VITE_GEMINAI_API_KEY;
           const uploadedGeminiFiles = await uploadFilesToGemini(geminiApiKey, ragFiles);
           setAutoAssistantId(JSON.stringify(uploadedGeminiFiles));
@@ -402,7 +429,7 @@ export default function App({chatbotType}) {
       setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
       
       if (ragFiles.length > 0) {
-        const serverName = llmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
+        const serverName = uiLlmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
         setAlertMessage(`파일이 성공적으로 ${serverName}에 업로드 되었습니다.\n이제 대화를 시작해 보세요!`);
       }
 
@@ -511,10 +538,10 @@ export default function App({chatbotType}) {
   }, []);
 
   useEffect(() => {
-    if (ragType === "native" && llmType === "custom") {
-      setRagType("none");
+    if (uiRagType === "native" && uiLlmType === "custom") {
+      setUiRagType("none");
     }
-  }, [llmType, ragType]);
+  }, [uiLlmType, uiRagType]);
 
   useEffect(() => {
     if (!apiKeys.find(a => a.id === selectedAgentId) && apiKeys.length > 0) {
@@ -522,28 +549,21 @@ export default function App({chatbotType}) {
     }
   }, [apiKeys, selectedAgentId]);
 
-  const activeAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
-
   const isFormValid = 
     apiKeys.length > 0 &&
-    llmType !== "" &&
-    (llmType !== "custom" || customLlmUrl.trim() !== "") &&
-    (ragType !== "external" || externalRagUrl.trim() !== "") &&
-    activeAgent?.character;
-
-  const updateCurrentAgent = (key, value) => {
-    setApiKeys(apiKeys.map(agent => 
-      agent.id === activeAgent.id ? { ...agent, [key]: value } : agent
-    ));
-  };
+    uiLlmType !== "" &&
+    (uiLlmType !== "custom" || customLlmUrl.trim() !== "") &&
+    (uiRagType !== "external" || externalRagUrl.trim() !== "") &&
+    uiCharacter;
 
   const handleReset = () => {
     setApiKeys([{
-      id: 1, name: "klever one", value: "sk-live-a1b2c3d4e5f6g7h8i9j0", date: "2026-04-07", character: "", voice: "", language: "ko"
+      id: 1, name: "klever one", value: "sk-live-a1b2c3d4e5f6g7h8i9j0", date: "2026-04-07", character: "chanu", voice: "", language: "ko", llm: "gpt", assistantId: ""
     }]);
     setSelectedAgentId(1);
-    setLlmType("");
-    setRagType("none");
+    setUiCharacter("chanu");
+    setUiLlmType("gpt");
+    setUiRagType("none");
     setLayout("bottom-right");
     setAutoOff(15);
     setAutoOffSec(0);
@@ -585,7 +605,7 @@ export default function App({chatbotType}) {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const newKeyObj = {
-      id: Date.now(), name: newKeyNameInput.trim(), value: newKey, date: dateStr, character: "", voice: "", language: "ko"
+      id: Date.now(), name: newKeyNameInput.trim(), value: newKey, date: dateStr, character: "chanu", voice: "", language: "ko", llm: "gpt", assistantId: ""
     };
     setApiKeys([newKeyObj, ...apiKeys]);
     setSelectedAgentId(newKeyObj.id);
@@ -624,7 +644,27 @@ export default function App({chatbotType}) {
   };
 
   const handleSaveClick = () => setIsModalOpen(true);
-  const confirmSave = () => { setIsModalOpen(false); setAlertMessage("성공적으로 적용되었습니다!"); };
+  
+  // =====================================================================
+  // 🚀 핵심 변경점: '저장(적용)' 버튼 클릭 시, 선택된 API 키 객체 안에
+  // 캐릭터, LLM, Assistant ID 값을 모두 값으로 밀어넣습니다.
+  // =====================================================================
+  const confirmSave = () => { 
+    setIsModalOpen(false); 
+    
+    setApiKeys(apiKeys.map(agent => 
+      agent.id === selectedAgentId ? { 
+        ...agent, 
+        character: uiCharacter,
+        llm: uiLlmType,
+        assistantId: uiRagType === "native" ? autoAssistantId : ""
+      } : agent
+    ));
+    
+    setAlertMessage("성공적으로 적용되었습니다!"); 
+  };
+  // =====================================================================
+  
   const cancelSave = () => setIsModalOpen(false);
   const handleExitClick = () => setIsExitModalOpen(true);
   const confirmExit = () => { setIsExitModalOpen(false); window.open('https://www.klever-one.com/', '_blank'); };
@@ -638,25 +678,11 @@ export default function App({chatbotType}) {
     return `\n<script>\n  (function(w, d, s, o, f, js, fjs) {\n    w['KleverOneWidget'] = o; w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };\n    js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];\n    js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);\n  }(window, document, 'script', 'kw', 'https://cdn.klever-one.com/widget.js'));\n  \n  // 위젯 초기화 및 설정 적용\n  kw('init', {\n    clientId: 'YOUR_CLIENT_ID', // 발급받은 클라이언트 API 키\n    layout: '${layout}',\n    autoOff: ${totalSeconds}\n  });\n</script>`;
   };
 
-  const handleCopyEmbedCode = () => {
-    try {
-      const textArea = document.createElement("textarea");
-      textArea.value = getEmbedCode();
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setAlertMessage("삽입 코드가 클립보드에 복사되었습니다!");
-    } catch (err) {
-      console.error("복사 실패", err);
-    }
-  };
-
   const getRagOptions = () => {
     const options = [{ value: "none", label: "사용 안 함" }];
-    if (llmType === "gpt") { options.push({ value: "native", label: "OpenAI Vector Store" }); } 
-    else if (llmType === "gemini") { options.push({ value: "native", label: "Google AI Studio RAG" }); } 
-    else if (llmType === "llamon") { options.push({ value: "native", label: "LLaMON RAG AI" }); }
+    if (uiLlmType === "gpt") { options.push({ value: "native", label: "OpenAI Vector Store" }); } 
+    else if (uiLlmType === "gemini") { options.push({ value: "native", label: "Google AI Studio RAG" }); } 
+    else if (uiLlmType === "llamon") { options.push({ value: "native", label: "LLaMON RAG AI" }); }
     return options;
   };
 
@@ -698,8 +724,10 @@ export default function App({chatbotType}) {
     { id: "center", label: "화면 중앙 팝업", boxClass: "center" }, { id: "top-right", label: "우측 상단", boxClass: "tr" }, { id: "top-left", label: "좌측 상단", boxClass: "tl" },
   ];
 
-  const selectedHuman = digitalHumans.find(human => human.id === activeAgent.character);
-  const currentAvatarNum = selectedHuman ? selectedHuman.num : 0;
+  // 챗봇 컴포넌트에 넘길 값들 계산
+  const savedAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
+  const selectedHuman = digitalHumans.find(human => human.id === uiCharacter);
+  const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; 
 
   return (
     <div className={`app-root ${!isDarkMode ? "light-mode" : ""}`}>
@@ -862,7 +890,7 @@ export default function App({chatbotType}) {
                   </label>
                   <select
                     className="custom-select"
-                    value={activeAgent.id}
+                    value={selectedAgentId}
                     onChange={(e) => setSelectedAgentId(Number(e.target.value))}
                   >
                     {apiKeys.map(key => (
@@ -878,9 +906,9 @@ export default function App({chatbotType}) {
                     <div
                       key={human.id}
                       className={`character-card ${
-                        activeAgent.character === human.id ? "selected" : ""
+                        uiCharacter === human.id ? "selected" : ""
                       }`}
-                      onClick={() => updateCurrentAgent("character", human.id)}
+                      onClick={() => setUiCharacter(human.id)}
                     >
                       <div
                         className="character-bg"
@@ -896,7 +924,7 @@ export default function App({chatbotType}) {
                           <p>{human.desc}</p>
                         </div>
                         <button className="btn-character">
-                          {activeAgent.character === human.id ? "선택됨" : "선택하기"}
+                          {uiCharacter === human.id ? "선택됨" : "선택하기"}
                         </button>
                       </div>
                     </div>
@@ -915,60 +943,60 @@ export default function App({chatbotType}) {
                 </p>
                 <div className="radio-group">
                   <label
-                    className={`radio-card ${llmType === "gpt" ? "active" : ""}`}
+                    className={`radio-card ${uiLlmType === "gpt" ? "active" : ""}`}
                   >
                     <input
                       type="radio"
                       value="gpt"
-                      checked={llmType === "gpt"}
-                      onChange={(e) => setLlmType(e.target.value)}
+                      checked={uiLlmType === "gpt"}
+                      onChange={(e) => setUiLlmType(e.target.value)}
                     />
                     <span className="radio-label">OpenAI GPT-5.3</span>
                   </label>
                   <label
                     className={`radio-card ${
-                      llmType === "gemini" ? "active" : ""
+                      uiLlmType === "gemini" ? "active" : ""
                     }`}
                   >
                     <input
                       type="radio"
                       value="gemini"
-                      checked={llmType === "gemini"}
-                      onChange={(e) => setLlmType(e.target.value)}
+                      checked={uiLlmType === "gemini"}
+                      onChange={(e) => setUiLlmType(e.target.value)}
                     />
                     <span className="radio-label">Google Gemini 3.1 Pro</span>
                   </label>
                   <label
                     className={`radio-card disabled ${
-                      llmType === "llamon" ? "active" : ""
+                      uiLlmType === "llamon" ? "active" : ""
                     }`}
                   >
                     <input
                       type="radio"
                       value="llamon"
-                      checked={llmType === "llamon"}
-                      onChange={(e) => setLlmType(e.target.value)}
+                      checked={uiLlmType === "llamon"}
+                      onChange={(e) => setUiLlmType(e.target.value)}
                       disabled
                     />
                     <span className="radio-label">LLaMON</span>
                   </label>
                   <label
                     className={`radio-card disabled ${
-                      llmType === "custom" ? "active" : ""
+                      uiLlmType === "custom" ? "active" : ""
                     }`}
                   >
                     <input
                       type="radio"
                       value="custom"
-                      checked={llmType === "custom"}
-                      onChange={(e) => setLlmType(e.target.value)}
+                      checked={uiLlmType === "custom"}
+                      onChange={(e) => setUiLlmType(e.target.value)}
                       disabled
                     />
                     <span className="radio-label">직접 연결 (Custom)</span>
                   </label>
                 </div>
 
-                {llmType === "custom" && (
+                {uiLlmType === "custom" && (
                   <div className="custom-endpoint-box">
                     <label>API 엔드포인트 URL (Webhook)</label>
                     <input
@@ -992,22 +1020,22 @@ export default function App({chatbotType}) {
                   {getRagOptions().map((option) => (
                         <label
                           key={option.value}
-                          className={`radio-card ${ragType === option.value ? "active" : ""}`}
+                          className={`radio-card ${uiRagType === option.value ? "active" : ""}`}
                         >
                           <input
                             type="radio"
                             value={option.value}
-                            checked={ragType === option.value}
-                            onChange={(e) => setRagType(e.target.value)}
+                            checked={uiRagType === option.value}
+                            onChange={(e) => setUiRagType(e.target.value)}
                           />
                           <span className="radio-label">{option.label}</span>
                         </label>
                       ))}
                     </div>
 
-                    {ragType === "native" && (llmType === "gpt" || llmType === "gemini" || llmType === "llamon") && (
+                    {uiRagType === "native" && (uiLlmType === "gpt" || uiLlmType === "gemini" || uiLlmType === "llamon") && (
                       <div className="custom-endpoint-box">
-                        {llmType === "gpt" && (
+                        {uiLlmType === "gpt" && (
                           <div style={{ marginBottom: "16px" }}>
                             <label>
                               Vector Store ID (또는 Assistant ID)
@@ -1498,13 +1526,20 @@ export default function App({chatbotType}) {
           layout={layout} 
         />
       ) : (
+        // ==========================================================
+        // 🚀 챗봇은 이제 UI 변수와 저장된 apiKeys 변수를 골라서 받습니다!
+        // ==========================================================
         <BasicChatbot 
           unrealurl={import.meta.env.VITE_MATCHMAKER}
           layout={layout}
           autoOff={autoOff * 60 + autoOffSec}
-          avatarnum={currentAvatarNum}
-          llm={llmType}
-          assistantId={ragType === "native" ? autoAssistantId : ""} 
+          
+          /* 1. 아바타: 변경 즉시 반영 (화면의 uiCharacter 사용) */
+          avatarnum={currentAvatarNum}       
+          
+          /* 2. LLM 엔진: 저장해야만 반영 (apiKeys에 있는 savedAgent 사용) */
+          llm={savedAgent.llm || "gpt"}               
+          assistantId={savedAgent.assistantId || ""} 
         />
       )}
       {isModalOpen && (

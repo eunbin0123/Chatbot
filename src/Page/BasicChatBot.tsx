@@ -13,6 +13,7 @@ interface BasicChatbotProps {
 }
 
 export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assistantId }: BasicChatbotProps) {
+
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState({ width: 360, height: 300 }); // 초기 사이즈
   const [inputText, setInputText] = useState("");
@@ -150,6 +151,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
             },
           });
 
+
           const psInstance = new PixelStreaming(config);
           psInstanceRef.current = psInstance;
 
@@ -169,7 +171,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
-              "Value": "1"
+              "Value": String(avatarnum)
             });
             psInstance.emitUIInteraction({
               "Category": "PageSetting",
