@@ -1,5 +1,5 @@
 import React from 'react';
-import { BasicChatbot } from './BasicChatBot';
+import {BasicChatbot} from './Page/BasicChatBot';
 
 const KleverOne = () => {
   // 전체 컨테이너 스타일
