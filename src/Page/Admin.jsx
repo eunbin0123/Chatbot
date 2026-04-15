@@ -1,1251 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BasicChatbot } from "./BasicChatBot";
 import { DigitalHuman } from "./DigitalHuman";
-const styles = `
-/* =========================================
-   AgentSettings.css (KLEVER ONE Vibe)
-========================================= */
+import  "../css/Admin.css";
 
-/* 🚀 미리보기 화면 전체 배경색을 어둡게 맞춤 */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  background-color: #0f1115;
-}
 
-.app-root {
-  min-height: 100vh;
-  background-color: #0f1115;
-  transition: background-color 0.3s ease;
-  /* flex 속성 제거로 레이아웃 찌그러짐 해결 */
-}
-
-.agent-settings-container,
-.agent-settings-container * {
-  box-sizing: border-box !important;
-}
-
-.agent-settings-container {
-  width: 100%; /* 🚀 컨테이너 폭을 명시하여 넓게 펴줌 */
-  max-width: 960px;
-  margin: 0 auto;
-  color: #e2e8f0;
-  font-family: "Pretendard", sans-serif;
-  padding: 40px 20px;
-}
-
-/* 헤더 및 탭 */
-.view-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-.title-area {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.main-title {
-  font-size: 30px;
-  font-weight: 800;
-  color: #fff;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-.main-title .highlight {
-  background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.sub-title {
-  font-size: 14px;
-  color: #9ca3af;
-  margin: 0;
-}
-.header-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.settings-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 2px solid #2d3748;
-  margin-bottom: 24px;
-}
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: #a0aec0;
-  padding: 12px 20px;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: all 0.2s;
-}
-.tab-btn:hover {
-  color: #e2e8f0;
-}
-.tab-btn.active {
-  color: #00c6ff;
-  border-bottom: 2px solid #00c6ff;
-  font-weight: 600;
-  text-shadow: 0 0 10px rgba(0, 198, 255, 0.3);
-}
-
-/* 본문 영역 */
-.tab-content-area,
-.tab-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-.fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 공통 카드 */
-.setting-card {
-  background-color: #1a1d24;
-  border: 1px solid #2d3748;
-  border-radius: 12px;
-  padding: 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-.card-header-flex {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-.card-title {
-  font-size: 17px;
-  color: #fff;
-  margin: 0 0 8px 0;
-  font-weight: 600;
-}
-.card-desc {
-  font-size: 13px;
-  color: #9ca3af;
-  margin: 0 0 20px 0;
-}
-
-.btn-klever-sync {
-  background-color: rgba(0, 198, 255, 0.1);
-  color: #00c6ff;
-  border: 1px solid rgba(0, 198, 255, 0.3);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-klever-sync:hover {
-  background-color: rgba(0, 198, 255, 0.2);
-  border-color: #00c6ff;
-}
-
-/* ==================================================
-   🚀 디지털 휴먼 이미지 선택 그리드 카드
-================================================== */
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-/* 반응형: 화면 작아지면 2개, 1개로 줄어듦 */
-@media (max-width: 768px) {
-  .character-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 480px) {
-  .character-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.character-card {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  aspect-ratio: 16 / 10;
-  cursor: pointer;
-  border: 2px solid #2d3748;
-  background-color: #0f1115;
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-}
-
-.character-card:hover {
-  transform: translateY(-4px);
-  border-color: #718096;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-}
-
-.character-card.selected {
-  border-color: #00c6ff;
-  box-shadow: 0 0 0 1px #00c6ff, 0 8px 20px rgba(0, 198, 255, 0.2);
-}
-
-.character-bg {
-  width: 100%;
-  height: 100%;
-}
-
-/* 이미지 하단 검은색 그라데이션 및 정보 */
-.character-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(
-    to top,
-    rgba(26, 29, 36, 1) 10%,
-    rgba(26, 29, 36, 0.7) 60%,
-    transparent 100%
-  );
-  padding: 24px 20px 20px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.character-text {
-  flex: 1;
-}
-.character-text h4 {
-  margin: 0 0 6px 0;
-  font-size: 16px;
-  color: #fff;
-  font-weight: 700;
-}
-.character-text p {
-  margin: 0;
-  font-size: 12px;
-  color: #a0aec0;
-  line-height: 1.4;
-  word-break: keep-all;
-}
-
-/* 우측 하단 선택하기 버튼 */
-.btn-character {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
-  padding: 6px 16px;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-
-.character-card:hover .btn-character {
-  background: rgba(255, 255, 255, 0.15);
-}
-.character-card.selected .btn-character {
-  background: #00c6ff;
-  border-color: #00c6ff;
-  color: #fff;
-  font-weight: 600;
-}
-
-/* ================== 폼 요소 ================== */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-.form-group label {
-  font-size: 13px;
-  color: #cbd5e0;
-}
-.form-group-row {
-  display: flex;
-  gap: 24px;
-}
-.mt-2 {
-  margin-top: 8px;
-}
-
-.custom-input,
-.custom-select {
-  width: 100%;
-  padding: 12px 16px;
-  background-color: #0f1115;
-  border: 1px solid #4a5568;
-  color: #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-}
-.custom-input:focus,
-.custom-select:focus {
-  border-color: #00c6ff;
-}
-
-/* 🚀 셀렉트 박스 화살표 커스텀 (우측 마진 10px 적용) */
-.custom-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
-  padding-right: 36px;
-}
-
-.custom-input[readOnly] {
-  background-color: #11141a;
-  color: #718096;
-  cursor: copy;
-}
-.input-with-unit {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.input-with-unit .unit {
-  color: #a0aec0;
-  font-size: 14px;
-}
-
-/* API 키 관리 리스트 (다중 API) */
-.api-key-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-}
-.api-key-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background-color: #0b0d10;
-  border: 1px solid #4a5568;
-  padding: 12px 16px;
-  border-radius: 8px;
-  transition: border-color 0.2s;
-}
-.api-key-item:hover {
-  border-color: #718096;
-}
-.api-key-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.api-key-name-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.api-key-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.api-key-date {
-  font-size: 11px;
-  color: #718096;
-}
-.api-key-value {
-  font-size: 13px;
-  color: #a0aec0;
-  font-family: "Consolas", "Monaco", monospace;
-  background: transparent;
-  border: none;
-  outline: none;
-  width: 100%;
-}
-.api-key-actions {
-  display: flex;
-  gap: 4px;
-}
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: #a0aec0;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn-icon:hover {
-  background-color: #2d3748;
-  color: #fff;
-}
-.btn-icon.danger:hover {
-  background-color: rgba(229, 62, 62, 0.1);
-  color: #e53e3e;
-}
-
-.btn-text-reissue {
-  background: transparent;
-  border: 1px solid #4a5568;
-  color: #a0aec0;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.btn-text-reissue:hover {
-  background-color: rgba(0, 198, 255, 0.1);
-  color: #00c6ff;
-  border-color: #00c6ff;
-}
-
-/* 라디오 */
-.radio-group {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 🚀 2열에서 4열로 변경 (한 줄로 나열) */
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .radio-group {
-    grid-template-columns: repeat(2, 1fr); /* 중간 화면에서는 2열 */
-  }
-}
-
-@media (max-width: 600px) {
-  .radio-group {
-    grid-template-columns: 1fr; /* 모바일에서는 1열 */
-  }
-}
-
-.radio-card {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* 🚀 간격을 늘려 라디오 버튼과 글자 사이의 여백 추가 */
-  padding: 12px 14px; /* 🚀 패딩을 살짝 줄여 한 줄에 잘 들어가게 함 */
-  background-color: #0f1115;
-  border: 1px solid #4a5568;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.radio-card:hover {
-  border-color: #718096;
-}
-.radio-card.active {
-  border-color: #00c6ff;
-  background-color: rgba(0, 198, 255, 0.05);
-}
-.radio-card input[type="radio"] {
-  margin: 0;
-  cursor: pointer;
-  accent-color: #00c6ff;
-}
-.radio-label {
-  font-size: 13px; /* 🚀 폰트 사이즈를 조금 줄임 */
-  color: #e2e8f0;
-  white-space: nowrap; /* 🚀 텍스트 줄바꿈 방지 */
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.custom-endpoint-box {
-  margin-top: 16px;
-  padding: 16px;
-  background-color: #2d3748;
-  border-radius: 8px;
-  animation: fadeIn 0.3s ease-out;
-  box-sizing: border-box;
-}
-.custom-endpoint-box label {
-  font-size: 13px;
-  color: #e2e8f0;
-  box-sizing: border-box;
-}
-
-/* ==================================================
-   🚀 에이전트 선택 박스 (탭 2)
-================================================== */
-.agent-select-box {
-  margin-bottom: 24px;
-  padding: 16px;
-  background-color: #0b0d10;
-  border: 1px solid #4a5568;
-  border-radius: 8px;
-}
-.agent-select-box label {
-  font-size: 13px;
-  color: #cbd5e0;
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-/* ================== RAG 학습 폼 요소 (통합형) ================== */
-.unified-rag-box {
-  background-color: #0f1115;
-  border: 1px dashed #4a5568;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: all 0.2s;
-  margin-top: 8px;
-}
-.unified-rag-box:hover,
-.unified-rag-box:focus-within {
-  border-color: #00c6ff;
-  background-color: rgba(0, 198, 255, 0.02);
-}
-.unified-rag-box.drag-active {
-  border-color: #00c6ff;
-  background-color: rgba(0, 198, 255, 0.1);
-  border-width: 2px;
-}
-.unified-rag-textarea {
-  width: 100%;
-  min-height: 60px; /* 🚀 100px에서 60px로 축소 */
-  padding: 16px;
-  background: transparent;
-  border: none;
-  color: #e2e8f0;
-  font-size: 14px;
-  resize: vertical;
-  outline: none;
-  font-family: inherit;
-}
-.unified-rag-textarea::placeholder {
-  color: #718096;
-  line-height: 1.5;
-}
-.unified-rag-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px 12px;
-}
-.btn-attach {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  color: #a0aec0;
-  border: 1px solid transparent;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-.btn-attach:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: #4a5568;
-  color: #fff;
-}
-.btn-add-rag {
-  background-color: #2d3748;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-add-rag:hover {
-  background-color: #00c6ff;
-  border-color: #00c6ff;
-  color: #fff;
-}
-.rag-files-preview {
-  padding: 0 16px 12px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.file-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #2d3748;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
-  max-width: 100%;
-}
-.file-chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 250px;
-}
-.file-chip button {
-  background: transparent;
-  border: none;
-  color: #a0aec0;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
-}
-.file-chip button:hover {
-  color: #e53e3e;
-}
-
-/* ================== 태그 프롬프팅 폼 요소 ================== */
-.prompt-tags-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-}
-.prompt-tag {
-  background-color: #0f1115;
-  border: 1px solid #4a5568;
-  color: #a0aec0;
-  padding: 8px 16px;
-  border-radius: 99px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  user-select: none;
-}
-.prompt-tag:hover {
-  border-color: #718096;
-  color: #e2e8f0;
-}
-.prompt-tag.active {
-  background-color: rgba(0, 198, 255, 0.1);
-  border-color: #00c6ff;
-  color: #00c6ff;
-  font-weight: 500;
-}
-
-.prompt-tag-remove {
-  background: transparent;
-  border: none;
-  color: inherit;
-  padding: 0;
-  margin-left: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-  transition: opacity 0.2s;
-}
-.prompt-tag-remove:hover {
-  opacity: 1;
-  color: #e53e3e;
-}
-
-/* ==================================================
-   🚀 MCP 연동 리스트 
-================================================== */
-.mcp-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #0b0d10;
-  border: 1px solid #4a5568;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  transition: border-color 0.2s;
-}
-.mcp-item:hover {
-  border-color: #718096;
-}
-.mcp-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.mcp-name { 
-  font-size: 14px; 
-  font-weight: 600; 
-  color: #e2e8f0; 
-  display: flex; 
-  align-items: center; 
-  gap: 8px; 
-}
-.mcp-desc { 
-  font-size: 12px; 
-  color: #718096; 
-}
-.mcp-badge { 
-  background: #2d3748; 
-  color: #a0aec0; 
-  padding: 2px 6px; 
-  border-radius: 4px; 
-  font-size: 10px; 
-  font-weight: 700; 
-}
-.mcp-badge.built-in { 
-  background: rgba(0, 198, 255, 0.1); 
-  color: #00c6ff; 
-  border: 1px solid rgba(0, 198, 255, 0.2); 
-}
-
-/* 토글 스위치 UI */
-.toggle-switch {
-  position: relative;
-  width: 40px;
-  height: 22px;
-  appearance: none;
-  -webkit-appearance: none;
-  background: #4a5568;
-  border-radius: 99px;
-  cursor: pointer;
-  outline: none;
-  transition: background 0.3s;
-  margin: 0;
-}
-.toggle-switch:checked {
-  background: #00c6ff;
-}
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.3s;
-}
-.toggle-switch:checked::after {
-  transform: translateX(18px);
-}
-.light-mode .mcp-item { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .mcp-name { color: #1a202c; }
-.light-mode .mcp-desc { color: #718096; }
-.light-mode .toggle-switch { background: #cbd5e0; }
-
-/* ================== 모드 토글 버튼 및 커스텀 프롬프트 ================== */
-.mode-toggle-group {
-  display: flex;
-  background-color: #0f1115;
-  border: 1px solid #2d3748;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.mode-toggle-btn {
-  background: transparent;
-  color: #a0aec0;
-  border: none;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.mode-toggle-btn:hover {
-  color: #e2e8f0;
-}
-.mode-toggle-btn.active {
-  background-color: #2d3748;
-  color: #00c6ff;
-}
-
-/* 🚀 카드 내 구분선 (Divider) */
-.card-divider {
-  border: none;
-  border-top: 1px dashed #4a5568;
-  margin: 24px 0;
-  width: 100%;
-}
-.light-mode .card-divider {
-  border-top-color: #cbd5e0;
-}
-
-.custom-tag-input-wrap {
-  display: flex;
-  align-items: center;
-  background-color: transparent;
-  border: 1px dashed #4a5568;
-  border-radius: 99px;
-  padding: 4px 4px 4px 12px;
-  gap: 6px;
-  transition: border-color 0.2s;
-}
-.custom-tag-input-wrap:focus-within {
-  border-color: #718096;
-}
-.custom-tag-input {
-  background: transparent;
-  border: none;
-  color: #e2e8f0;
-  font-size: 13px;
-  outline: none;
-  width: 90px;
-}
-.custom-tag-input::placeholder {
-  color: #718096;
-}
-.btn-add-tag {
-  background-color: #2d3748;
-  color: #e2e8f0;
-  border: none;
-  border-radius: 99px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-add-tag:hover {
-  background-color: #4a5568;
-  color: #fff;
-}
-
-.manual-prompt-textarea {
-  width: 100%;
-  min-height: 150px;
-  padding: 16px;
-  background-color: #0f1115;
-  border: 1px solid #4a5568;
-  border-radius: 8px;
-  color: #e2e8f0;
-  font-size: 14px;
-  resize: vertical;
-  outline: none;
-  font-family: inherit;
-  margin-top: 16px;
-}
-.manual-prompt-textarea:focus {
-  border-color: #00c6ff;
-}
-
-/* ================== 위젯 레이아웃 선택기 ================== */
-.layout-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 16px;
-}
-.layout-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-}
-.layout-item span {
-  font-size: 13px;
-  color: #a0aec0;
-  transition: color 0.2s;
-  white-space: nowrap;
-}
-.layout-preview {
-  width: 100%;
-  height: 100px;
-  background-color: #0f1115;
-  border: 2px solid #4a5568;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: all 0.2s;
-}
-.layout-item:hover .layout-preview {
-  border-color: #718096;
-}
-.layout-item.selected .layout-preview {
-  border-color: #00c6ff;
-  background-color: rgba(0, 198, 255, 0.05);
-}
-.layout-item.selected span {
-  color: #00c6ff;
-  font-weight: bold;
-}
-
-.browser-mockup {
-  width: 80%;
-  height: 70%;
-  border: 1px dashed #718096;
-  border-radius: 4px;
-  position: relative;
-}
-.widget-box {
-  position: absolute;
-  background-color: #00c6ff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 198, 255, 0.4);
-}
-
-.widget-box.br {
-  width: 20px;
-  height: 35px;
-  bottom: 6px;
-  right: 6px;
-}
-.widget-box.bl {
-  width: 20px;
-  height: 35px;
-  bottom: 6px;
-  left: 6px;
-}
-.widget-box.tr {
-  width: 20px;
-  height: 35px;
-  top: 6px;
-  right: 6px;
-}
-.widget-box.tl {
-  width: 20px;
-  height: 35px;
-  top: 6px;
-  left: 6px;
-}
-.widget-box.center {
-  width: 35px;
-  height: 45px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* ================== 버튼 ================== */
-button {
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 14px;
-}
-.btn-primary {
-  background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
-  color: #fff;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 114, 255, 0.3);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 114, 255, 0.4);
-}
-.btn-primary:disabled {
-  background: #4a5568;
-  color: #a0aec0;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-.btn-danger {
-  background: #e53e3e;
-  color: #fff;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.btn-danger:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(229, 62, 62, 0.4);
-}
-.btn-secondary {
-  background-color: #4a5568;
-  color: #fff;
-  border: none;
-  padding: 0 16px;
-  border-radius: 8px;
-  font-weight: 500;
-}
-.btn-outline {
-  background-color: transparent;
-  color: #cbd5e0;
-  border: 1px solid #4a5568;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 500;
-}
-.text-blue {
-  color: #00c6ff;
-  border-color: rgba(0, 198, 255, 0.5);
-}
-
-/* ==================================================
-   🚀 저장 확인 모달 (Modal) UI
-================================================== */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.modal-box {
-  background-color: #1a1d24;
-  border: 1px solid #2d3748;
-  border-radius: 16px;
-  padding: 32px;
-  width: 90%;
-  max-width: 360px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  text-align: center;
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.modal-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 12px 0;
-}
-
-.modal-logo {
-  font-size: 24px;
-  font-weight: 800;
-  margin: 0 0 16px 0;
-}
-
-.modal-logo span {
-  background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.modal-desc {
-  font-size: 14px;
-  color: #a0aec0;
-  margin: 0 0 28px 0;
-  line-height: 1.5;
-  word-break: keep-all;
-}
-
-.modal-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.modal-buttons button {
-  flex: 1;
-  padding: 12px 0;
-}
-
-/* ==================================================
-   🚀 상단 뒤로가기 아이콘 버튼 UI
-================================================== */
-.btn-icon-back {
-  background-color: transparent;
-  color: #a0aec0;
-  border: none;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 0;
-}
-.btn-icon-back:hover {
-  color: #fff;
-  transform: scale(1.1);
-}
-
-/* ==================================================
-   🚀 코드 복사 컨테이너 UI
-================================================== */
-.code-container {
-  position: relative;
-  background-color: #0b0d10;
-  border: 1px solid #4a5568;
-  border-radius: 8px;
-  padding: 20px 16px 16px;
-  margin-top: 16px;
-  overflow-x: auto;
-}
-.code-container pre {
-  margin: 0;
-  color: #a0aec0;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-family: "Consolas", "Monaco", monospace;
-  padding-right: 80px;
-}
-.code-container .code-highlight {
-  color: #00c6ff;
-}
-
-/* 🚀 삽입 코드 탭 스타일 추가 */
-.code-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.code-tab-btn {
-  background: transparent;
-  border: 1px solid #4a5568;
-  color: #a0aec0;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-.code-tab-btn:hover {
-  background: #2d3748;
-  color: #e2e8f0;
-}
-.code-tab-btn.active {
-  background: rgba(0, 198, 255, 0.1);
-  border-color: #00c6ff;
-  color: #00c6ff;
-}
-
-.btn-copy-code {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background-color: #2d3748;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-copy-code:hover {
-  background-color: #4a5568;
-  color: #fff;
-  border-color: #718096;
-}
-
-/* ==================================================
-   🚀 라이트 모드 (Light Mode) 오버라이드
-================================================== */
-.app-root.light-mode { background-color: #f0f4f8; }
-.light-mode .agent-settings-container { color: #1a202c; }
-.light-mode .main-title { color: #1a202c; }
-.light-mode .sub-title { color: #4a5568; }
-.light-mode .view-header { border-bottom-color: rgba(0, 0, 0, 0.1); }
-.light-mode .tab-btn { color: #718096; }
-.light-mode .tab-btn:hover { color: #1a202c; }
-.light-mode .tab-btn.active { color: #0072ff; border-bottom-color: #0072ff; text-shadow: none; }
-.light-mode .setting-card { background-color: #ffffff; border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-.light-mode .card-title { color: #1a202c; }
-.light-mode .card-desc { color: #718096; }
-.light-mode .api-key-item { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .api-key-name { color: #1a202c; }
-.light-mode .api-key-value { color: #4a5568; }
-.light-mode .btn-icon { color: #718096; }
-.light-mode .btn-icon:hover { background-color: #edf2f7; color: #1a202c; }
-.light-mode .btn-text-reissue { border-color: #cbd5e0; color: #4a5568; }
-.light-mode .btn-text-reissue:hover { background-color: rgba(0, 114, 255, 0.1); color: #0072ff; border-color: #0072ff; }
-.light-mode .radio-card { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .radio-card.active { background-color: rgba(0, 114, 255, 0.05); border-color: #0072ff; }
-.light-mode .radio-label { color: #4a5568; }
-.light-mode .custom-endpoint-box { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .custom-endpoint-box label { color: #4a5568; }
-.light-mode .agent-select-box { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .agent-select-box label { color: #4a5568; }
-.light-mode .unified-rag-box { background-color: #ffffff; border-color: #cbd5e0; }
-.light-mode .unified-rag-box:hover { background-color: rgba(0, 114, 255, 0.02); }
-.light-mode .unified-rag-textarea { color: #1a202c; }
-.light-mode .btn-attach { color: #4a5568; }
-.light-mode .btn-attach:hover { background: #edf2f7; color: #1a202c; }
-.light-mode .file-chip { background: #edf2f7; border-color: #cbd5e0; color: #4a5568; }
-.light-mode .prompt-tag { background-color: #ffffff; border-color: #cbd5e0; color: #4a5568; }
-.light-mode .prompt-tag:hover { border-color: #718096; color: #1a202c; }
-.light-mode .prompt-tag.active { background-color: rgba(0, 114, 255, 0.1); border-color: #0072ff; color: #0072ff; }
-.light-mode .mode-toggle-group { background-color: #f7fafc; border-color: #cbd5e0; }
-.light-mode .mode-toggle-btn { color: #718096; }
-.light-mode .mode-toggle-btn.active { background-color: #ffffff; color: #0072ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.light-mode .custom-input, .light-mode .custom-select, .light-mode .manual-prompt-textarea { background-color: #ffffff; border-color: #cbd5e0; color: #1a202c; }
-.light-mode .custom-input[readOnly] { background-color: #f7fafc; color: #718096; }
-.light-mode select.custom-select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); }
-.light-mode .character-card { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .character-card.selected { border-color: #0072ff; box-shadow: 0 0 0 1px #0072ff, 0 8px 20px rgba(0, 114, 255, 0.15); }
-.light-mode .layout-preview { background-color: #ffffff; border-color: #cbd5e0; }
-.light-mode .layout-item span { color: #4a5568; }
-.light-mode .browser-mockup { border-color: #cbd5e0; background-color: #ffffff; }
-.light-mode .code-container { background-color: #f7fafc; border-color: #cbd5e0; }
-.light-mode .code-container pre { color: #2d3748; }
-.light-mode .btn-copy-code { background-color: #ffffff; color: #4a5568; border-color: #cbd5e0; }
-
-/* 라이트 모드 삽입 코드 탭 스타일 */
-.light-mode .code-tab-btn { border-color: #cbd5e0; color: #718096; }
-.light-mode .code-tab-btn:hover { background: #edf2f7; color: #1a202c; }
-.light-mode .code-tab-btn.active { background: rgba(0, 114, 255, 0.05); border-color: #0072ff; color: #0072ff; }
-
-.light-mode .modal-box { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .modal-title { color: #1a202c; }
-.light-mode .modal-desc { color: #4a5568; }
-.light-mode .btn-outline { border-color: #cbd5e0; color: #4a5568; }
-.light-mode .btn-outline:hover { background-color: #f7fafc; }
-.light-mode .btn-icon-back { color: #a0aec0; }
-.light-mode .btn-icon-back:hover { color: #1a202c; }
-.light-mode .form-group label { color: #4a5568; }
-
-/* 테마 토글 버튼 스타일 */
-.btn-icon-theme {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-icon-theme:hover { background: rgba(255, 255, 255, 0.1); }
-.light-mode .btn-icon-theme { border-color: #cbd5e0; color: #4a5568; }
-.light-mode .btn-icon-theme:hover { background: #edf2f7; }
-`;
-
-export default function App({chatbotType}) {
+import { 
+  uploadFilesToVectorStore, 
+  linkVectorStoreToAssistant, 
+  uploadFilesToGemini 
+} from "../services/ragService";export default function App({chatbotType}) {
   const [activeTab, setActiveTab] = useState("agent"); // 에이전트 탭 기본 표시
 
   // 시스템 & AI
@@ -1269,6 +32,10 @@ export default function App({chatbotType}) {
   const [nativeRagId, setNativeRagId] = useState("");
   const [externalRagUrl, setExternalRagUrl] = useState("");
 
+  // !!수정!! 중복 호출을 막기 위한 상태 추가
+  const [autoAssistantId, setAutoAssistantId] = useState("");
+  const [lastVerifiedVsId, setLastVerifiedVsId] = useState("");
+
   // 위젯 설정
   const [layout, setLayout] = useState("bottom-right");
   const [autoOff, setAutoOff] = useState(15);
@@ -1279,6 +46,7 @@ export default function App({chatbotType}) {
   const [ragFiles, setRagFiles] = useState([]);
   const [ragTexts, setRagTexts] = useState([]);
   const [isDragging, setIsDragging] = useState(false); // 🚀 드래그 상태 추가
+  const [isUploading, setIsUploading] = useState(false); // 🚀 업로드 진행 상태 추가
 
   // 🚀 파일 입력을 위한 참조 추가
   const fileInputRef = useRef(null);
@@ -1289,6 +57,35 @@ export default function App({chatbotType}) {
     { id: "calculator", name: "수학 및 코드 실행기", desc: "복잡한 수식이나 코드를 실행하여 정확한 결과값을 도출합니다.", type: "built-in", active: false },
     { id: "custom_1", name: "사내 예약 시스템 연동", desc: "https://api.company.com/mcp/booking", type: "custom", active: true }
   ]);
+
+  // =========================================================
+  // !!수정!! Vector Store ID 입력 완료 시 Assistant 연동 로직
+  // =========================================================
+  const handleVectorIdFinish = async () => {
+    const currentId = nativeRagId.trim();
+    
+    // 입력값이 없거나 GPT 네이티브 RAG가 아니거나 이미 확인된 ID면 중복 실행 방지
+    if (!currentId || llmType !== "gpt" || ragType !== "native") return;
+    if (currentId === lastVerifiedVsId) return; 
+
+    setIsUploading(true); // 로딩 UI 활성화
+    
+    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY || "YOUR_OPENAI_API_KEY";
+    
+    // Service 파일에서 통신 및 메시지 결과 받아오기
+    const result = await linkVectorStoreToAssistant(openaiApiKey, currentId);
+    
+    if (result.success) {
+      setAutoAssistantId(result.assistantId);
+      setLastVerifiedVsId(currentId);
+      setAlertMessage(result.message);
+      console.log(result.isNew ? "신규 Assistant 연동:" : "기존 Assistant 연동:", result.assistantId);
+    } else {
+      setAlertMessage(result.message);
+    }
+    
+    setIsUploading(false); // 로딩 UI 종료
+  };
 
   // =========================================================
   // 🚀 누락되었던 드래그 앤 드롭 및 파일 업로드 핸들러 복구
@@ -1308,6 +105,7 @@ export default function App({chatbotType}) {
       const newFiles = files.map((file) => ({
         id: Date.now() + Math.random(), // 고유 ID 생성
         name: file.name,
+        fileObject: file // 🚀 API 전송을 위해 실제 파일 객체 보관
       }));
       setRagFiles([...ragFiles, ...newFiles]);
     }
@@ -1343,26 +141,59 @@ export default function App({chatbotType}) {
       const newFiles = files.map((file) => ({
         id: Date.now() + Math.random(),
         name: file.name,
+        fileObject: file // 🚀 API 전송을 위해 실제 파일 객체 보관
       }));
       setRagFiles([...ragFiles, ...newFiles]);
     }
   };
 
-  // RAG 텍스트/URL 추가 로직
-  const handleAddRag = () => {
-    if (!ragInput.trim()) return;
-    
-    // URL인지 단순 텍스트인지 판별
-    const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
-    
-    const newItem = {
-      id: Date.now(),
-      type: isUrl ? 'url' : 'text',
-      content: ragInput.trim()
-    };
-    
-    setRagTexts([...ragTexts, newItem]);
-    setRagInput(""); // 입력창 초기화
+  // 🚀 RAG 텍스트/URL 추가 및 OpenAI Vector Store 업로드 로직 통합
+  const handleAddRag = async () => {
+    // 1. 단순 텍스트/URL 입력 처리 (유지)
+    if (ragInput.trim()) {
+      const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
+      setRagTexts([...ragTexts, { id: Date.now(), type: isUrl ? 'url' : 'text', content: ragInput.trim() }]);
+      setRagInput(""); 
+    }
+
+    // 2. 파일 업로드 로직 (GPT vs Gemini 분기 처리)
+    if (ragFiles.length > 0 && ragType === "native") {
+      setIsUploading(true);
+      
+      try {
+        if (llmType === "gpt") {
+          // [GPT 로직]
+          if (!nativeRagId.trim()) {
+            setAlertMessage("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
+            setIsUploading(false); return;
+          }
+          const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+          await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
+          
+          setAlertMessage("파일이 성공적으로 OpenAI Vector Store에 업로드 되었습니다."); 
+          setRagFiles([]); 
+
+        } else if (llmType === "gemini") {
+          // !!수정!! [Gemini 로직 추가]
+          const geminiApiKey = import.meta.env.VITE_GEMINAI_API_KEY;
+          
+          // 위에서 만든 함수로 Gemini 서버에 파일들 업로드
+          const uploadedGeminiFiles = await uploadFilesToGemini(geminiApiKey, ragFiles);
+          
+          // 업로드된 파일 정보 배열을 문자열(JSON)로 바꿔서 assistantId 프롭으로 넘김
+          setAutoAssistantId(JSON.stringify(uploadedGeminiFiles));
+          setAlertMessage("파일이 성공적으로 Gemini 서버에 업로드 되었습니다.\n이제 대화를 시작해 보세요!"); 
+          setRagFiles([]); 
+        }
+      } catch (error) {
+        console.error("RAG Error:", error);
+        setAlertMessage("업로드 중 오류가 발생했습니다: " + error.message);
+      } finally {
+        setIsUploading(false);
+      }
+    } else if (ragFiles.length > 0 && ragType !== "native") {
+       setAlertMessage("현재 파일 업로드는 Native 연동일 때만 작동합니다.");
+    }
   };
 
   // 추가된 텍스트/URL 삭제 로직
@@ -1482,6 +313,10 @@ export default function App({chatbotType}) {
     setCustomTags([]);
     setCustomTagInput("");
     setManualPrompt("");
+    
+    // !!수정!! 상태 초기화
+    setAutoAssistantId("");
+    setLastVerifiedVsId(""); 
   };
 
   // 🚀 특정 API 키 복사
@@ -1650,8 +485,7 @@ export default function App() {
 }`;
     }
 
-    return `<!-- KLEVER ONE Widget -->
-<script>
+    return `<script>
   (function(w, d, s, o, f, js, fjs) {
     w['KleverOneWidget'] = o; w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };
     js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];
@@ -1760,35 +594,35 @@ export default function App() {
       name: "차누 (Chanu)",
       desc: "전문적이고 논리적인 컨설턴트 스타일",
       bg: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)",
-      num: 1 // 👈 추가
+      num: 1 
     },
     {
       id: "sujin",
       name: "마이클 (Michael)", 
       desc: "밝고 캐주얼한 일상 대화 스타일",
       bg: "linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)",
-      num: 4 // 👈 추가
+      num: 4 
     },
     {
       id: "kris",
       name: "크리스 (Kris)",
       desc: "글로벌 서비스에 적합한 외국인 모델",
       bg: "linear-gradient(135deg, #141e30 0%, #243b55 100%)",
-      num: 3 // 👈 추가
+      num: 3 
     },
     {
       id: "custom1",
       name: "나의 커스텀 1",
       desc: "KLEVER 스튜디오에서 연동된 모델",
       bg: "linear-gradient(135deg, #4b6cb7 0%, #182848 100%)",
-      num: 0 // 👈 추가
+      num: 0 
     },
     {
       id: "custom2",
       name: "나의 커스텀 2",
       desc: "KLEVER 스튜디오에서 연동된 모델",
       bg: "linear-gradient(135deg, #614385 0%, #516395 100%)",
-      num: 0 // 👈 추가
+      num: 0 
     },
   ];
 
@@ -1805,9 +639,7 @@ export default function App() {
 
   return (
     <div className={`app-root ${!isDarkMode ? "light-mode" : ""}`}>
-      {/* 🚀 CSS를 싱글 파일 내부에 직접 주입합니다 */}
-      <style>{styles}</style>
-      
+
       <div className="agent-settings-container">
         {/* 상단 헤더 */}
         <div className="view-header">
@@ -1968,7 +800,7 @@ export default function App() {
                       value="gemini"
                       checked={llmType === "gemini"}
                       onChange={(e) => setLlmType(e.target.value)}
-                    />
+                    />  
                     <span className="radio-label">Google Gemini 1.5 Pro</span>
                   </label>
                   <label
@@ -2053,6 +885,9 @@ export default function App() {
                                            "예: kb_789xyz (기존 저장소 연결 시)"}
                               value={nativeRagId}
                               onChange={(e) => setNativeRagId(e.target.value)}
+                              // !!수정!! 인풋태그 함수 연결 부분
+                              onBlur={handleVectorIdFinish} 
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleVectorIdFinish(); }} 
                             />
                           </div>
                         )}
@@ -2073,6 +908,7 @@ export default function App() {
                               value={ragInput}
                               onChange={(e) => setRagInput(e.target.value)}
                               onKeyDown={handleRagKeyDown}
+                              disabled={isUploading}
                             ></textarea>
                             
                             <input 
@@ -2082,6 +918,7 @@ export default function App() {
                               accept=".pdf,.txt,.doc,.docx" 
                               multiple
                               onChange={handleFileChange}
+                              disabled={isUploading}
                             />
 
                             {(ragFiles.length > 0 || ragTexts.length > 0) && (
@@ -2099,7 +936,7 @@ export default function App() {
                                       </svg>
                                     )}
                                     <span title={item.content}>{item.content}</span>
-                                    <button type="button" onClick={() => removeRagText(item.id)} title="삭제">
+                                    <button type="button" onClick={() => removeRagText(item.id)} title="삭제" disabled={isUploading}>
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <line x1="18" y1="6" x2="6" y2="18"></line>
                                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -2115,7 +952,7 @@ export default function App() {
                                       <polyline points="13 2 13 9 20 9"></polyline>
                                     </svg>
                                     <span>{file.name}</span>
-                                    <button type="button" onClick={() => removeFile(file.id)} title="삭제">
+                                    <button type="button" onClick={() => removeFile(file.id)} title="삭제" disabled={isUploading}>
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <line x1="18" y1="6" x2="6" y2="18"></line>
                                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -2127,14 +964,16 @@ export default function App() {
                             )}
 
                             <div className="unified-rag-actions">
-                              <button className="btn-attach" onClick={handleFileAttach}>
+                              <button className="btn-attach" onClick={handleFileAttach} disabled={isUploading}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                                 </svg>
                                 파일 첨부
                               </button>
                               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                <button className="btn-add-rag" onClick={handleAddRag}>업로드</button>
+                                <button className="btn-add-rag" onClick={handleAddRag} disabled={isUploading}>
+                                  {isUploading ? "업로드 중..." : "업로드"}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -2546,7 +1385,8 @@ export default function App() {
           layout={layout}
           autoOff={autoOff * 60 + autoOffSec}
           avatarnum={currentAvatarNum}
-          llm = {llmType}
+          llm={llmType}
+          assistantId={ragType === "native" ? autoAssistantId : ""} 
         />
       )}
       {/* 🚀 저장 확인 커스텀 모달 */}

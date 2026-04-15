@@ -9,9 +9,10 @@ interface BasicChatbotProps {
   autoOff: number; // 초 
   avatarnum: number;
   llm: string; // "gpt" 또는 "gemini"
+  assistantId?: string;
 }
 
-export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm }: BasicChatbotProps) {
+export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assistantId }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState({ width: 360, height: 300 }); // 초기 사이즈
   const [inputText, setInputText] = useState("");
@@ -22,6 +23,8 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm }: Bas
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const autoOffTimerRef = useRef<any>(null);
+
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -199,83 +202,202 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm }: Bas
     }
   }, [avatarnum, isOpen]);
 
- // 🚀 LLM 연결 및 언리얼 전송 로직
-const sendMessage = async () => {
-  const message = inputText.trim();
-  if (!message || !psInstanceRef.current || isLoading) return;
+  // 🚀 LLM 연결 및 스트리밍 전송 로직
+  const sendMessage = async () => {
+    const message = inputText.trim();
+    if (!message || !psInstanceRef.current || isLoading) return;
 
-  try {
-    setIsLoading(true);
-    setInputText("");
-    resetAutoOffTimer();
-    let aiResponse = "";
+    try {
+      setIsLoading(true);
+      setInputText("");
+      resetAutoOffTimer();
+      let aiResponse = "";
 
-    // 1. LLM 타입에 따른 API 호출 분기
-    if (llm === "gpt") {
-      // [GPT 연동 부분]
-      
-      const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer sk-${import.meta.env.VITE_OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [{ role: "user", content: message }]
-        })
-      });
-      
-      const data = await response.json();
-      aiResponse = data.choices[0]?.message?.content || "GPT 응답을 생성하지 못했습니다.";
-      console.log("aiResponse (GPT): %s", aiResponse);
+      // 1. LLM 타입에 따른 API 호출 분기
+      if (llm === "gpt") {
+        const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+        
+        // !!수정!! Assistant ID 존재 여부에 따라 RAG 모드와 기본 모드 분기 처리
+        if (assistantId) {
+          // ==========================================
+          // [RAG 모드] Assistant ID가 있을 때 (Assistants API 사용)
+          // ==========================================
+          console.log("GPT RAG 모드로 답변을 생성합니다. (Assistant ID: " + assistantId + ")");
+          
+          let currentThreadId = threadId;
+          if (!currentThreadId) {
+            const threadRes = await fetch("https://api.openai.com/v1/threads", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${gptApiKey}`,
+                "OpenAI-Beta": "assistants=v2"
+              }
+            });
+            const threadData = await threadRes.json();
+            currentThreadId = threadData.id;
+            setThreadId(currentThreadId);
+          }
 
-   } else {
-  try {
-    const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
-    // 리스트에 존재 확인된 3.1 Flash Lite 모델 경로입니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
+          // 현재 스레드에 사용자 메시지 추가
+          await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${gptApiKey}`,
+              "OpenAI-Beta": "assistants=v2"
+            },
+            body: JSON.stringify({ role: "user", content: message })
+          });
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: message }] }]
-      })
-    });
+          // Assistant 실행
+          const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${gptApiKey}`,
+              "OpenAI-Beta": "assistants=v2"
+            },
+            body: JSON.stringify({ assistant_id: assistantId })
+          });
+          const runData = await runRes.json();
+          const runId = runData.id;
 
-    const data = await response.json();
+          // 처리 완료 대기 (Polling)
+          let runStatus = runData.status;
+          while (runStatus === "queued" || runStatus === "in_progress") {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            const checkRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`, {
+              headers: {
+                "Authorization": `Bearer ${gptApiKey}`,
+                "OpenAI-Beta": "assistants=v2"
+              }
+            });
+            const checkData = await checkRes.json();
+            runStatus = checkData.status;
+          }
 
-    if (!response.ok) {
-      console.error("Gemini 에러:", data);
-      throw new Error(`Error ${response.status}`);
+          // 답변 가져오기
+          if (runStatus === "completed") {
+            const msgsRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
+              headers: {
+                "Authorization": `Bearer ${gptApiKey}`,
+                "OpenAI-Beta": "assistants=v2"
+              }
+            });
+            const msgsData = await msgsRes.json();
+            
+            const rawAnswer = msgsData.data[0]?.content[0]?.text?.value || "응답을 불러오지 못했습니다.";
+            aiResponse = rawAnswer.replace(/【.*?】/g, ''); // 출처 마크다운 제거
+            console.log("aiResponse (GPT RAG): %s", aiResponse);
+          } else {
+            console.error(`GPT 실행 실패 상태: ${runStatus}`);
+            aiResponse = "답변 생성 중 오류가 발생했습니다.";
+          }
+
+        } else {
+          // ==========================================
+          // !!수정!! [기본 모드] Assistant ID가 없을 때 (일반 Chat API 사용)
+          // ==========================================
+          console.log("GPT 기본 모드로 답변을 생성합니다. (파일 연동 없음)");
+          
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${gptApiKey}`
+            },
+            body: JSON.stringify({
+              model: "gpt-4o", // 필요시 gpt-4로 변경 가능
+              messages: [{ role: "user", content: message }]
+            })
+          });
+          
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(`GPT Error: ${data.error?.message}`);
+          }
+          
+          aiResponse = data.choices[0]?.message?.content || "GPT 응답을 생성하지 못했습니다.";
+          console.log("aiResponse (GPT Basic): %s", aiResponse);
+        }
+
+      } else {
+        // ==========================================
+        // !!수정!! [Gemini 로직] 기본 모드 & RAG 모드 지원
+        // ==========================================
+        try {
+          const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
+
+          // 1. 기본 메시지 세팅
+          let parts: any[] = [{ text: message }];
+
+          // 2. RAG (파일) 이 업로드 되어 있는지 확인
+          // assistantId에 우리가 아까 JSON.stringify로 넣었던 파일 정보들이 들어있습니다.
+          if (assistantId) {
+            try {
+              const geminiFiles = JSON.parse(assistantId);
+              
+              // 질문(text) 보다 앞부분에 파일 데이터들을 차곡차곡 넣어줍니다.
+              geminiFiles.forEach((file: any) => {
+                parts.unshift({
+                  fileData: {
+                    mimeType: file.mimeType,
+                    fileUri: file.uri
+                  }
+                });
+              });
+              console.log(`Gemini RAG 모드 작동 중 (참부된 파일 수: ${geminiFiles.length})`);
+            } catch (e) {
+              console.log("Gemini 기본 모드 작동 중 (파일 없음)");
+            }
+          } else {
+            console.log("Gemini 기본 모드 작동 중 (파일 없음)");
+          }
+
+          // 3. API 호출 (parts 배열 통째로 전송)
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: parts }]
+            })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error("Gemini 에러:", data);
+            throw new Error(`Error ${response.status}`);
+          }
+
+          aiResponse = data.candidates[0].content.parts[0].text;
+          console.log("Gemini 응답 성공!");
+
+        } catch (error) {
+          console.error("호출 실패:", error);
+          aiResponse = "연결 오류가 발생했습니다.";
+        }
+      }
+
+      // 2. 응답받은 결과를 스트리밍 환경으로 전송
+      if (aiResponse) {
+              console.log("Message : %s", aiResponse);
+
+        psInstanceRef.current.emitUIInteraction({
+          Category: "VoiceSetting",
+          Type: "Script",
+          Value: encodeURIComponent(aiResponse), // 인코딩하여 전송
+        });
+      }
+
+    } catch (error) {
+      console.error("LLM 전체 로직 에러:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    aiResponse = data.candidates[0].content.parts[0].text;
-    console.log("연결 성공! (Gemini 3.1 Flash Lite)");
-
-  } catch (error) {
-    console.error("호출 실패:", error);
-    aiResponse = "연결 오류가 발생했습니다.";
-  }
-}
-    // 2. 응답받은 결과를 언리얼 엔진으로 전송
-    // aiResponse가 비어있지 않을 때만 전송
-    if (aiResponse) {
-      psInstanceRef.current.emitUIInteraction({
-        Category: "VoiceSetting",
-        Type: "Script",
-        Value: encodeURIComponent(aiResponse), // 인코딩하여 전송
-      });
-    }
-
-  } catch (error) {
-    console.error("LLM 전체 로직 에러:", error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleKeyEvent = (e: any) => {
     if (e.key === "Enter") sendMessage();
