@@ -50,6 +50,7 @@ const Metabuild = () => {
           avatarnum={config.avatarnum}
           llm={config.llm}
           assistantId={config.assistantId} 
+          agentName='metabuild'
         />
       </div>
     </div>

@@ -50,6 +50,7 @@ const KleverOne = () => {
           avatarnum={config.avatarnum}
           llm={config.llm}
           assistantId={config.assistantId} 
+          agentName='chilloean'
         />
       </div>
     </div>

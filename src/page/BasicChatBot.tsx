@@ -6,17 +6,12 @@ import "../css/FloatingWidget.css";
 interface BasicChatbotProps {
   unrealurl: string;
   layout: string;
-  autoOff: number; // 초 
   avatarnum: number;
   llm: string; // "gpt" 또는 "gemini"
   assistantId?: string;
-  // 🚀 프롬프트 설정용 Props 추가
-  promptMode?: string;
-  promptTags?: string[];
-  promptManual?: string;
+  agentName?: string; // 🚀 로컬 스토리지에서 특정 에이전트의 프롬프트 설정을 찾기 위한 이름
 }
 
-// 🚀 태그를 LLM 지시문으로 변환하기 위한 딕셔너리
 const tagInstructions: Record<string, string> = {
   "no_politics": "정치적인 주제에 대한 질문에는 절대 답변하지 마세요.",
   "no_religion": "종교와 관련된 논쟁이나 의견 표출을 피하세요.",
@@ -32,25 +27,54 @@ const tagInstructions: Record<string, string> = {
 export function BasicChatbot({ 
   unrealurl, 
   layout, 
-  autoOff, 
   avatarnum, 
   llm, 
   assistantId,
-  promptMode = "tag",      // 🚀 기본값 처리
-  promptTags = [],         // 🚀 기본값 처리
-  promptManual = ""        // 🚀 기본값 처리
+  agentName = "" // 기본값
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [size, setSize] = useState({ width: 360, height: 300 }); // 초기 사이즈
+  const [size, setSize] = useState({ width: 360, height: 300 }); 
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
 
+  // 🚀 내부에서 로컬 스토리지 프롬프트를 관리할 상태
+  const [promptSettings, setPromptSettings] = useState({
+    mode: "tag",
+    tags: [] as string[],
+    manual: ""
+  });
+
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
-  const autoOffTimerRef = useRef<any>(null);
-
   const [threadId, setThreadId] = useState<string | null>(null);
+
+  // 🚀 컴포넌트 마운트 시 로컬 스토리지에서 프롬프트 설정 가져오기
+  useEffect(() => {
+    try {
+      const savedAdminConfig = localStorage.getItem("klever_admin_config");
+      if (savedAdminConfig) {
+        const parsedConfig = JSON.parse(savedAdminConfig);
+        const agents = parsedConfig.apiKeys || [];
+        
+        // agentName이 있으면 해당 에이전트 검색, 없으면 첫 번째 에이전트 사용 (안전 장치)
+        const targetAgent = agentName 
+          ? agents.find((a: any) => a.name === agentName) 
+          : agents[0];
+
+        if (targetAgent) {
+          setPromptSettings({
+            mode: targetAgent.promptMode || "tag",
+            tags: targetAgent.promptTags || [],
+            manual: targetAgent.promptManual || ""
+          });
+          console.log(`[${agentName || 'default'}] 프롬프트 설정 로드 완료`);
+        }
+      }
+    } catch (e) {
+      console.error("로컬 스토리지 프롬프트 파싱 오류:", e);
+    }
+  }, [agentName]);
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -104,33 +128,11 @@ export function BasicChatbot({
 
     return (
       <div className="fw-resize-handle" style={style} onMouseDown={handleResize}>
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d={pathData}></path>
         </svg>
       </div>
     );
-  };
-
-   // ================== 자동 꺼짐 ==================
-  const resetAutoOffTimer = () => {
-    if (!autoOff) return;
-
-    if (autoOffTimerRef.current) {
-      clearTimeout(autoOffTimerRef.current);
-    }
-
-    autoOffTimerRef.current = setTimeout(() => {
-      closeWidget();
-    }, autoOff * 1000);
   };
 
   const disconnectStreaming = () => {
@@ -214,7 +216,7 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, unrealurl]); // 🚀 의존성 배열 보강
+  }, [isOpen, unrealurl, avatarnum]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
@@ -227,7 +229,6 @@ export function BasicChatbot({
     }
   }, [avatarnum, isOpen]);
 
-  // 🚀 LLM 연결 및 스트리밍 전송 로직
   const sendMessage = async () => {
     const message = inputText.trim();
     if (!message || !psInstanceRef.current || isLoading) return;
@@ -235,37 +236,30 @@ export function BasicChatbot({
     try {
       setIsLoading(true);
       setInputText("");
-      resetAutoOffTimer();
       let aiResponse = "";
 
-      // ==========================================
-      // 🚀 시스템 프롬프트(지시문) 조립 시작
-      // ==========================================
+      // 🚀 상태값(로컬 스토리지 기반)에서 프롬프트 세팅 꺼내오기
+      const { mode, tags, manual } = promptSettings;
+
       let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
       
-      if (promptMode === 'tag' && promptTags.length > 0) {
-        // 매핑된 지시문만 필터링 (커스텀 태그는 무시되거나, 별도 텍스트 처리가 필요할 수 있습니다)
-        const rules = promptTags.map(tag => tagInstructions[tag]).filter(Boolean);
+      if (mode === 'tag' && tags.length > 0) {
+        const rules = tags.map(tag => tagInstructions[tag]).filter(Boolean);
         if (rules.length > 0) {
           finalSystemPrompt += rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
         } else {
           finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
         }
-      } else if (promptMode === 'manual' && promptManual.trim()) {
-        finalSystemPrompt = promptManual;
+      } else if (mode === 'manual' && manual.trim()) {
+        finalSystemPrompt = manual;
       } else {
         finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
       }
-      // ==========================================
 
-      // 1. LLM 타입에 따른 API 호출 분기
       if (llm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
         
         if (assistantId) {
-          // ==========================================
-          // [RAG 모드] Assistant ID가 있을 때 (Assistants API 사용)
-          // ==========================================
           console.log("GPT RAG 모드로 답변을 생성합니다. (Assistant ID: " + assistantId + ")");
           
           let currentThreadId = threadId;
@@ -283,7 +277,6 @@ export function BasicChatbot({
             setThreadId(currentThreadId);
           }
 
-          // 현재 스레드에 사용자 메시지 추가
           await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
             method: "POST",
             headers: {
@@ -294,7 +287,6 @@ export function BasicChatbot({
             body: JSON.stringify({ role: "user", content: message })
           });
 
-          // Assistant 실행 (🚀 여기서 instructions에 우리가 조립한 시스템 프롬프트를 덮어씌웁니다)
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
             headers: {
@@ -304,13 +296,12 @@ export function BasicChatbot({
             },
             body: JSON.stringify({ 
               assistant_id: assistantId,
-              instructions: finalSystemPrompt // 🚀 조립된 시스템 프롬프트 주입
+              instructions: finalSystemPrompt
             })
           });
           const runData = await runRes.json();
           const runId = runData.id;
 
-          // 처리 완료 대기 (Polling)
           let runStatus = runData.status;
           while (runStatus === "queued" || runStatus === "in_progress") {
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -324,7 +315,6 @@ export function BasicChatbot({
             runStatus = checkData.status;
           }
 
-          // 답변 가져오기
           if (runStatus === "completed") {
             const msgsRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
               headers: {
@@ -335,7 +325,7 @@ export function BasicChatbot({
             const msgsData = await msgsRes.json();
             
             const rawAnswer = msgsData.data[0]?.content[0]?.text?.value || "응답을 불러오지 못했습니다.";
-            aiResponse = rawAnswer.replace(/【.*?】/g, ''); // 출처 마크다운 제거
+            aiResponse = rawAnswer.replace(/【.*?】/g, ''); 
             console.log("aiResponse (GPT RAG): %s", aiResponse);
           } else {
             console.error(`GPT 실행 실패 상태: ${runStatus}`);
@@ -343,9 +333,6 @@ export function BasicChatbot({
           }
 
         } else {
-          // ==========================================
-          // [기본 모드] Assistant ID가 없을 때 (일반 Chat API 사용)
-          // ==========================================
           console.log("GPT 기본 모드로 답변을 생성합니다.");
           
           const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -357,7 +344,7 @@ export function BasicChatbot({
             body: JSON.stringify({
               model: "gpt-4o",
               messages: [
-                { role: "system", content: finalSystemPrompt }, // 🚀 배열의 맨 앞에 시스템 프롬프트 추가
+                { role: "system", content: finalSystemPrompt },
                 { role: "user", content: message }
               ]
             })
@@ -373,17 +360,12 @@ export function BasicChatbot({
         }
 
       } else {
-        // ==========================================
-        // [Gemini 로직] 기본 모드 & RAG 모드 지원
-        // ==========================================
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
 
-          // 1. 기본 메시지 세팅
           let parts: any[] = [{ text: message }];
 
-          // 2. RAG (파일) 이 업로드 되어 있는지 확인
           if (assistantId) {
             try {
               const geminiFiles = JSON.parse(assistantId);
@@ -401,12 +383,11 @@ export function BasicChatbot({
             }
           }
 
-          // 3. API 호출 (🚀 systemInstruction 항목에 조립된 프롬프트를 넣습니다)
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              systemInstruction: { // 🚀 Gemini용 시스템 프롬프트 필드
+              systemInstruction: { 
                 parts: [{ text: finalSystemPrompt }]
               },
               contents: [{ parts: parts }]
@@ -429,14 +410,12 @@ export function BasicChatbot({
         }
       }
 
-      // 2. 응답받은 결과를 스트리밍 환경으로 전송
       if (aiResponse) {
         console.log("Message : %s", aiResponse);
-
         psInstanceRef.current.emitUIInteraction({
           Category: "VoiceSetting",
           Type: "Script",
-          Value: encodeURIComponent(aiResponse), // 인코딩하여 전송
+          Value: encodeURIComponent(aiResponse), 
         });
       }
 
@@ -447,7 +426,7 @@ export function BasicChatbot({
     }
   };
 
-  const handleKeyEvent = (e: any) => {
+  const handleKeyEvent = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") sendMessage();
   };
 
@@ -507,8 +486,6 @@ export function BasicChatbot({
       <div id="fw-app-root">
         <div className={`fw-widget ${layout} ${isOpen ? "open" : "closed"}`}
           style={{ width: `${size.width}px`, height: `${size.height}px` }}
-          onMouseDown={resetAutoOffTimer}
-        onTouchStart={resetAutoOffTimer}
         >
           {isLoading && (
             <div className="fw-loading-overlay">
@@ -526,7 +503,7 @@ export function BasicChatbot({
               className="fw-input"
               value={inputText}
               onFocus={handleInputFocus}
-              onChange={(e) => {setInputText(e.target.value); resetAutoOffTimer();}}
+              onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyEvent}
               placeholder="메시지 입력..."
               disabled={isLoading}
@@ -544,16 +521,7 @@ export function BasicChatbot({
             </button>
 
             <button onClick={sendMessage} className="send-btn" disabled={isLoading}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                width="18"
-                height="18"
-              >
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
               </svg>
