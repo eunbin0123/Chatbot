@@ -167,31 +167,23 @@ useEffect(() => {
     const connect = async () => {
       isConnectingRef.current = true;
       try {
-        const matchmakerUrl = unrealurl.replace("https://", "http://");
-        // 💡 수정: https면 wss, http면 ws를 사용하도록 변경
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; 
+        const matchmakerUrl = import.meta.env.VITE_MATCHMAKER.replace("https://", "http://");
+                            const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss';
+                            const res = await fetch(`${matchmakerUrl}/signallingserver`);
+                            const data = await res.json();
+                            const ssUrl = `${protocol}://${data.signallingServer}`;
+                            const config = new Config({
+                                                initialSettings: {
+                                                    ss: ssUrl,
+                                                    AutoPlayVideo: true,
+                                                    AutoConnect: true,
+                                                    //StartVideoMuted: true,
+                                                    HoveringMouse: true,
+                                                    KeyboardInput:false,
+                                                    MouseInput:false,
+                                                },
+                                            });
         
-        const res = await fetch(`${matchmakerUrl}/signallingserver`);
-        const data = await res.json();
-        
-        // 💡 API를 기다리는 동안 위젯이 닫혔다면 즉시 중단
-        if (isCancelled) {
-          isConnectingRef.current = false;
-          return;
-        }
-
-        const ssUrl = `${protocol}://${data.signallingServer}`;
-        const config = new Config({
-          initialSettings: {
-            ss: ssUrl,
-            AutoPlayVideo: true,
-            AutoConnect: true,
-            HoveringMouse: true,
-            KeyboardInput: false,
-            MouseInput: false,
-          },
-        });
-
         const psInstance = new PixelStreaming(config);
         psInstanceRef.current = psInstance;
 
@@ -248,7 +240,7 @@ useEffect(() => {
     };
   }
 // 🚨 가장 중요: 의존성 배열에서 avatarnum을 반드시 제거하세요!
-}, [isOpen]);
+}, [isOpen, unrealurl]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
