@@ -169,7 +169,7 @@ useEffect(() => {
       try {
         const matchmakerUrl = unrealurl.replace("https://", "http://");
         // 💡 수정: https면 wss, http면 ws를 사용하도록 변경
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss'; 
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; 
         
         const res = await fetch(`${matchmakerUrl}/signallingserver`);
         const data = await res.json();
