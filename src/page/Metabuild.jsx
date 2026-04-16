@@ -17,7 +17,7 @@ const Metabuild = () => {
       const agents = parsedConfig.apiKeys || [];
 
       // 🚀 여기서 "Metabuild"만 딱 찾습니다.
-      const targetAgent = agents.find(agent => agent.name === "Metabuild");
+      const targetAgent = agents.find(agent => agent.name === "metabuild");
 
       if (targetAgent) {
         const getAvatarNum = (charName) => {
