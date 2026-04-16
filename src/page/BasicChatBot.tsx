@@ -49,33 +49,6 @@ export function BasicChatbot({
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
 
-  // 🚀 컴포넌트 마운트 시 로컬 스토리지에서 프롬프트 설정 가져오기
-  useEffect(() => {
-    try {
-      const savedAdminConfig = localStorage.getItem("klever_admin_config");
-      if (savedAdminConfig) {
-        const parsedConfig = JSON.parse(savedAdminConfig);
-        const agents = parsedConfig.apiKeys || [];
-        
-        // agentName이 있으면 해당 에이전트 검색, 없으면 첫 번째 에이전트 사용 (안전 장치)
-        const targetAgent = agentName 
-          ? agents.find((a: any) => a.name === agentName) 
-          : agents[0];
-
-        if (targetAgent) {
-          setPromptSettings({
-            mode: targetAgent.promptMode || "tag",
-            tags: targetAgent.promptTags || [],
-            manual: targetAgent.promptManual || ""
-          });
-          console.log(`[${agentName || 'default'}] 프롬프트 설정 로드 완료`);
-        }
-      }
-    } catch (e) {
-      console.error("로컬 스토리지 프롬프트 파싱 오류:", e);
-    }
-  }, [agentName]);
-
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
 
@@ -157,12 +130,48 @@ export function BasicChatbot({
     setIsOpen(false);
   };
 
+  // 🚀 위젯이 열릴 때 프롬프트/아바타 설정을 가져오고 픽셀 스트리밍을 연결하는 통합 useEffect
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
         try {
+          // 1. 연결 시작 전 로컬 스토리지에서 최신 설정 가져오기
+          let targetAvatarNum = avatarnum; // 기본값은 prop 유지
+
+          const savedAdminConfig = localStorage.getItem("klever_admin_config");
+          if (savedAdminConfig) {
+            const parsedConfig = JSON.parse(savedAdminConfig);
+            const agents = parsedConfig.apiKeys || [];
+            
+            const targetAgent = agentName 
+              ? agents.find((a: any) => a.name === agentName) 
+              : agents[0];
+
+            if (targetAgent) {
+              // 프롬프트 세팅 업데이트
+              setPromptSettings({
+                mode: targetAgent.promptMode || "tag",
+                tags: targetAgent.promptTags || [],
+                manual: targetAgent.promptManual || ""
+              });
+
+              // 캐릭터 이름으로 아바타 번호 계산
+              const getAvatarNum = (charName: string) => {
+                if (charName === "yuri") return 2;
+                if (charName === "sujin") return 4;
+                return 1;
+              };
+              
+              if (targetAgent.character) {
+                targetAvatarNum = getAvatarNum(targetAgent.character);
+              }
+              console.log(`[${agentName || 'default'}] 최신 설정 적용 완료. 전송될 아바타: ${targetAvatarNum}`);
+            }
+          }
+
+          // 2. 픽셀 스트리밍 연결 설정
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'ws' : 'wss';
+          const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; // 수정됨: https일 경우 wss 사용
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
@@ -193,11 +202,14 @@ export function BasicChatbot({
               "Width": "1280",
               "Height": "720"
             });
+            
+            // 3. 로컬 스토리지에서 계산된 최신 아바타 번호(targetAvatarNum) 전송
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
-              "Value": String(avatarnum)
+              "Value": String(targetAvatarNum)
             });
+            
             psInstance.emitUIInteraction({
               "Category": "PageSetting",
               "Type": "WindowSize"
@@ -216,8 +228,9 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, unrealurl]);
+  }, [isOpen, unrealurl, agentName, avatarnum]); 
 
+  // 외부에서 avatarnum prop이 변경되었을 때 갱신 (선택적 유지)
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
       psInstanceRef.current.emitUIInteraction({
@@ -225,7 +238,7 @@ export function BasicChatbot({
         Type: "AvatarNum",
         Value: String(avatarnum)
       });
-      console.log(`아바타 변경 신호 전송됨: ${avatarnum}`);
+      console.log(`아바타 변경 신호 전송됨(prop 변경): ${avatarnum}`);
     }
   }, [avatarnum, isOpen]);
 
@@ -238,7 +251,7 @@ export function BasicChatbot({
       setInputText("");
       let aiResponse = "";
 
-      // 🚀 상태값(로컬 스토리지 기반)에서 프롬프트 세팅 꺼내오기
+      // 🚀 상태값(로컬 스토리지 기반 최신 데이터)에서 프롬프트 세팅 꺼내오기
       const { mode, tags, manual } = promptSettings;
 
       let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
