@@ -42,7 +42,7 @@ const KleverOne = () => {
 
   return (
     <div style={containerStyle}>
-      <iframe src="https://www.metabuild.co.kr/" title="Metabuild Website" style={iframeStyle} allowFullScreen />
+      <iframe src="https://www.chilloen.com/" title="chilloen Website" style={iframeStyle} allowFullScreen />
       <div style={chatbotWrapperStyle}>
         <BasicChatbot 
           unrealurl={import.meta.env.VITE_MATCHMAKER}

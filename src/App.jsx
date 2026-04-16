@@ -26,7 +26,7 @@ export default function App() {
         <Route path="/value" element={<ValuePage />} />
         <Route path="/basicadmin" element={<Admin chatbotType = "basic"/>} />
         <Route path="/metabuild" element={<Metabuild />} />
-        <Route path="/keleverone" element={<KleverOne />} />
+        <Route path="/chilloen" element={<KleverOne />} />
         
       </Routes>
     </Router>

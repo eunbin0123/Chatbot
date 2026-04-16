@@ -49,10 +49,10 @@ function Dashboard() {
           </button>
           <button 
             className={`${styles['menu-btn']} ${styles.api}`} 
-            onClick={() => navigate('/keleverone')}
+            onClick={() => navigate('/chilloen')}
           >
             <div className={styles.icon}>🔷</div>
-            <span>KleverOne</span>
+            <span>Chilloen</span>
           </button>
           {/* <button className={`${styles['menu-btn']} ${styles.customize}`} onClick={() => navigate('/customize')}>
             <div className={styles.icon}>⚙️</div>
