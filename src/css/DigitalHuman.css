@@ -1,0 +1,270 @@
+/* ================== DigitalHuman.css ================== */
+
+/* 위젯 전체 박스 */
+.dh-widget {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 360px;
+  height: 300px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.dh-widget.closed {
+  display: none;
+}
+
+/* 디지털 휴먼 컨테이너 - 비율 유지, 중앙 정렬 */
+.dh-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+/* SDK 생성 요소 강제 맞춤 */
+.dh-container > * {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;       /* 화면 꽉 채우기 */
+  object-position: center top; /* 얼굴 중심 상단 정렬 */
+}
+
+/* 로딩 오버레이 */
+.dh-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 17, 17);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 10000;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+.dh-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: dh-spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes dh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 입력창 */
+.dh-input-bar {
+  position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 22px;
+    display: flex;
+    padding: 0 4px 0 15px;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+}
+
+.dh-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #333;
+}
+
+.dh-input-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #333;
+}
+
+/* 전송 버튼 */
+.dh-send-btn {
+  width: 32px;
+  height: 32px;
+  background: #3b82f6; /* 버튼 배경색 */
+  border: none;
+  border-radius: 50%;   /* 완전한 원형 */
+  color: white;        /* 화살표 색상 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease;
+}
+
+.dh-send-btn:hover {
+  background: #2563eb; /* 마우스 올렸을 때 조금 더 진하게 */
+}
+
+.dh-send-btn:active {
+  transform: scale(0.9); /* 클릭했을 때 살짝 작아지는 효과 */
+}
+
+/* 플로팅 토글 버튼 */
+.dh-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background: #3b82f6; /* 기존 색상 유지 */
+  border-radius: 50%;
+  border: none;         /* 테두리 제거 */
+  outline: none;        /* 클릭/포커스 시 테두리 제거 */
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+  transition: transform 0.2s, background 0.2s;
+}
+
+/* 클릭 시 scale 효과만 주고 테두리/outline 없음 */
+.dh-toggle-btn:focus,
+.dh-toggle-btn:active,
+.dh-send-btn:focus,
+.dh-send-btn:active {
+  outline: none;
+  border: none;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transform: scale(0.95);
+}
+
+/* 아이콘 색상과 크기 */
+.dh-toggle-btn svg {
+  width: 28px;
+  height: 28px;
+  fill: white;
+  transition: transform 0.2s;
+}
+
+#videoElementParent{
+    display: flex;
+}
+
+/* ================== layout override ================== */
+
+.dh-widget,
+.dh-toggle-btn {
+  position: fixed;
+}
+
+/* 우하단 */
+.dh-widget.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+.dh-toggle-btn.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* 좌하단 */
+.dh-widget.bottom-left {
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+}
+.dh-toggle-btn.bottom-left {
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+}
+
+/* 우상단 */
+.dh-widget.top-right {
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+}
+.dh-toggle-btn.top-right {
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+}
+
+/* 좌상단 */
+.dh-widget.top-left {
+  top: 20px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+.dh-toggle-btn.top-left {
+  top: 20px;
+  left: 20px;
+  bottom: auto;
+  right: auto;
+}
+
+/* 중앙 */
+.dh-widget.center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  bottom: auto;
+  right: auto;
+}
+.dh-toggle-btn.center {
+  bottom: 20px;
+  right: 20px;
+}
+
+
+
+
+/* FloatingWidget.css */
+
+.dh-widget {
+    overflow: visible !important; 
+}
+
+.dh-resize-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5)); /* 꺽쇠가 잘 보이도록 그림자 추가 */
+}
+
+.dh-resize-handle:hover {
+    background: rgba(255, 255, 255, 0.1); /* 호버 시 아주 살짝 배경 */
+    transform: scale(1.15);
+}
+
+.dh-resize-handle svg {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.dh-resize-handle:hover svg {
+    opacity: 1;
+    stroke: #3b82f6; /* 호버 시 파란색 포인트 */
+}
