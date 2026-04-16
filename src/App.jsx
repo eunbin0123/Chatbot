@@ -1,12 +1,12 @@
 import './App.css'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Dashboard from './Page/Dashboard';
-import Admin from './Page/Admin';
-import FloatingWidget from './Page/FloatingWidget';
-import Customize from './Page/Customize';
-import { DigitalHuman } from './Page/DigitalHuman';
-import ValuePage from './Page/ValuePage';
-import {BasicChatbot} from './Page/BasicChatBot';
+import Dashboard from './page/Dashboard';
+import Admin from './page/Admin';
+import FloatingWidget from './page/FloatingWidget';
+import Customize from './page/Customize';
+import { DigitalHuman } from './page/DigitalHuman';
+import ValuePage from './page/ValuePage';
+import {BasicChatbot} from './page/BasicChatBot';
 import KleverOne from './page/Metabuild';
 
 export default function App() {
