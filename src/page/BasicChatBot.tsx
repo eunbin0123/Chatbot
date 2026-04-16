@@ -36,8 +36,9 @@ export function BasicChatbot({
   const [size, setSize] = useState({ width: 360, height: 300 }); 
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false); 
-  const [isThinking, setIsThinking] = useState(false); // 🚀 AI 답변 대기 상태
+  const [isThinking, setIsThinking] = useState(false); 
   const [isMicOn, setIsMicOn] = useState(false);
+  const [isResizing, setIsResizing] = useState(false); // 🚀 드래그 상태 관리
 
   const [promptSettings, setPromptSettings] = useState({
     mode: "tag",
@@ -51,6 +52,7 @@ export function BasicChatbot({
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
+    setIsResizing(true); // 🚀 드래그 시작
 
     const onMouseMove = (mouseMoveEvent: MouseEvent) => {
       setSize((prev) => {
@@ -63,7 +65,9 @@ export function BasicChatbot({
         };
       });
     };
+    
     const onMouseUp = () => {
+      setIsResizing(false); // 🚀 드래그 종료
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
@@ -475,8 +479,18 @@ export function BasicChatbot({
   return (
     <>
       <div id="fw-app-root">
+        
+        {/* 🚀 핵심 해결책: 드래그하는 동안 화면 전체에 투명 방어막을 쳐서 iframe이 마우스를 뺏어가는 것을 원천 차단! */}
+        {isResizing && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, cursor: 'pointer' }} />
+        )}
+
         <div className={`fw-widget ${layout} ${isOpen ? "open" : "closed"}`}
-          style={{ width: `${size.width}px`, height: `${size.height}px` }}
+          style={{ 
+            width: `${size.width}px`, 
+            height: `${size.height}px`,
+            userSelect: isResizing ? 'none' : 'auto' 
+          }}
         >
           {isLoading && (
             <div className="fw-loading-overlay">
@@ -485,11 +499,14 @@ export function BasicChatbot({
             </div>
           )}
 
-          <div ref={videoWrapperRef} className="fw-video-wrapper" />
+          <div 
+            ref={videoWrapperRef} 
+            className="fw-video-wrapper" 
+            style={{ pointerEvents: isResizing ? 'none' : 'auto' }}
+          />
           {isOpen && <CloseButton />}
           <ResizeHandle />
           
-          {/* 🚀 CSS가 깨지지 않도록 원래의 className과 구조를 100% 복구했습니다 */}
           <div className="fw-input-bar">
             <input
               type="text"
@@ -498,7 +515,6 @@ export function BasicChatbot({
               onFocus={handleInputFocus}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyEvent}
-              /* 🚀 로딩 중일 때 글씨만 바뀝니다 */
               placeholder={isThinking ? "답변을 생성하고 있습니다..." : "메시지 입력..."}
               disabled={isLoading || isThinking}
             />
@@ -515,7 +531,6 @@ export function BasicChatbot({
             </button>
 
             <button onClick={sendMessage} className="send-btn" disabled={isLoading || isThinking || !inputText.trim()}>
-              {/* 🚀 디자인 레이아웃에 영향 없이, 전송 버튼 안의 아이콘만 회전 스피너로 바뀝니다 */}
               {isThinking ? (
                  <div style={{ 
                    width: '18px', 
@@ -544,7 +559,6 @@ export function BasicChatbot({
         )}
       </div>
       
-      {/* 전송 버튼 내부 스피너를 위한 애니메이션만 남겨두었습니다 */}
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
