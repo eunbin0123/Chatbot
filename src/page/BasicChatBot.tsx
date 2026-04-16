@@ -9,7 +9,7 @@ interface BasicChatbotProps {
   avatarnum: number;
   llm: string; // "gpt" 또는 "gemini"
   assistantId?: string;
-  agentName?: string; // 🚀 로컬 스토리지에서 특정 에이전트의 프롬프트 설정을 찾기 위한 이름
+  agentName?: string;
 }
 
 const tagInstructions: Record<string, string> = {
@@ -30,15 +30,15 @@ export function BasicChatbot({
   avatarnum, 
   llm, 
   assistantId,
-  agentName = "" // 기본값
+  agentName = "" 
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState({ width: 360, height: 300 }); 
   const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isThinking, setIsThinking] = useState(false); // 🚀 AI 답변 대기 상태
   const [isMicOn, setIsMicOn] = useState(false);
 
-  // 🚀 내부에서 로컬 스토리지 프롬프트를 관리할 상태
   const [promptSettings, setPromptSettings] = useState({
     mode: "tag",
     tags: [] as string[],
@@ -130,13 +130,11 @@ export function BasicChatbot({
     setIsOpen(false);
   };
 
-  // 🚀 위젯이 열릴 때 프롬프트/아바타 설정을 가져오고 픽셀 스트리밍을 연결하는 통합 useEffect
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
         try {
-          // 1. 연결 시작 전 로컬 스토리지에서 최신 설정 가져오기
-          let targetAvatarNum = avatarnum; // 기본값은 prop 유지
+          let targetAvatarNum = avatarnum; 
 
           const savedAdminConfig = localStorage.getItem("klever_admin_config");
           if (savedAdminConfig) {
@@ -148,14 +146,12 @@ export function BasicChatbot({
               : agents[0];
 
             if (targetAgent) {
-              // 프롬프트 세팅 업데이트
               setPromptSettings({
                 mode: targetAgent.promptMode || "tag",
                 tags: targetAgent.promptTags || [],
                 manual: targetAgent.promptManual || ""
               });
 
-              // 캐릭터 이름으로 아바타 번호 계산
               const getAvatarNum = (charName: string) => {
                 if (charName === "yuri") return 2;
                 if (charName === "sujin") return 4;
@@ -165,13 +161,11 @@ export function BasicChatbot({
               if (targetAgent.character) {
                 targetAvatarNum = getAvatarNum(targetAgent.character);
               }
-              console.log(`[${agentName || 'default'}] 최신 설정 적용 완료. 전송될 아바타: ${targetAvatarNum}`);
             }
           }
 
-          // 2. 픽셀 스트리밍 연결 설정
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'ws' : 'ws'; // 수정됨: https일 경우 wss 사용
+          const protocol = window.location.protocol === 'https:' ? 'ws' : 'ws'; 
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
@@ -203,7 +197,6 @@ export function BasicChatbot({
               "Height": "720"
             });
             
-            // 3. 로컬 스토리지에서 계산된 최신 아바타 번호(targetAvatarNum) 전송
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
@@ -230,7 +223,6 @@ export function BasicChatbot({
     }
   }, [isOpen, unrealurl, agentName, avatarnum]); 
 
-  // 외부에서 avatarnum prop이 변경되었을 때 갱신 (선택적 유지)
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
       psInstanceRef.current.emitUIInteraction({
@@ -238,20 +230,18 @@ export function BasicChatbot({
         Type: "AvatarNum",
         Value: String(avatarnum)
       });
-      console.log(`아바타 변경 신호 전송됨(prop 변경): ${avatarnum}`);
     }
   }, [avatarnum, isOpen]);
 
   const sendMessage = async () => {
     const message = inputText.trim();
-    if (!message || !psInstanceRef.current || isLoading) return;
+    if (!message || !psInstanceRef.current || isLoading || isThinking) return;
 
     try {
-      setIsLoading(true);
+      setIsThinking(true); 
       setInputText("");
       let aiResponse = "";
 
-      // 🚀 상태값(로컬 스토리지 기반 최신 데이터)에서 프롬프트 세팅 꺼내오기
       const { mode, tags, manual } = promptSettings;
 
       let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
@@ -273,8 +263,6 @@ export function BasicChatbot({
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
         
         if (assistantId) {
-          console.log("GPT RAG 모드로 답변을 생성합니다. (Assistant ID: " + assistantId + ")");
-          
           let currentThreadId = threadId;
           if (!currentThreadId) {
             const threadRes = await fetch("https://api.openai.com/v1/threads", {
@@ -339,15 +327,11 @@ export function BasicChatbot({
             
             const rawAnswer = msgsData.data[0]?.content[0]?.text?.value || "응답을 불러오지 못했습니다.";
             aiResponse = rawAnswer.replace(/【.*?】/g, ''); 
-            console.log("aiResponse (GPT RAG): %s", aiResponse);
           } else {
-            console.error(`GPT 실행 실패 상태: ${runStatus}`);
             aiResponse = "답변 생성 중 오류가 발생했습니다.";
           }
 
         } else {
-          console.log("GPT 기본 모드로 답변을 생성합니다.");
-          
           const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -369,7 +353,6 @@ export function BasicChatbot({
           }
           
           aiResponse = data.choices[0]?.message?.content || "GPT 응답을 생성하지 못했습니다.";
-          console.log("aiResponse (GPT Basic): %s", aiResponse);
         }
 
       } else {
@@ -390,9 +373,8 @@ export function BasicChatbot({
                   }
                 });
               });
-              console.log(`Gemini RAG 모드 작동 중 (참부된 파일 수: ${geminiFiles.length})`);
             } catch (e) {
-              console.log("Gemini 파일 파싱 오류, 기본 모드로 전환");
+              console.log("Gemini 파일 파싱 오류");
             }
           }
 
@@ -410,21 +392,17 @@ export function BasicChatbot({
           const data = await response.json();
 
           if (!response.ok) {
-            console.error("Gemini 에러:", data);
             throw new Error(`Error ${response.status}`);
           }
 
           aiResponse = data.candidates[0].content.parts[0].text;
-          console.log("Gemini 응답 성공!");
 
         } catch (error) {
-          console.error("호출 실패:", error);
           aiResponse = "연결 오류가 발생했습니다.";
         }
       }
 
       if (aiResponse) {
-        console.log("Message : %s", aiResponse);
         psInstanceRef.current.emitUIInteraction({
           Category: "VoiceSetting",
           Type: "Script",
@@ -435,7 +413,7 @@ export function BasicChatbot({
     } catch (error) {
       console.error("LLM 전체 로직 에러:", error);
     } finally {
-      setIsLoading(false);
+      setIsThinking(false); 
     }
   };
 
@@ -510,6 +488,8 @@ export function BasicChatbot({
           <div ref={videoWrapperRef} className="fw-video-wrapper" />
           {isOpen && <CloseButton />}
           <ResizeHandle />
+          
+          {/* 🚀 CSS가 깨지지 않도록 원래의 className과 구조를 100% 복구했습니다 */}
           <div className="fw-input-bar">
             <input
               type="text"
@@ -518,26 +498,39 @@ export function BasicChatbot({
               onFocus={handleInputFocus}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyEvent}
-              placeholder="메시지 입력..."
-              disabled={isLoading}
+              /* 🚀 로딩 중일 때 글씨만 바뀝니다 */
+              placeholder={isThinking ? "답변을 생성하고 있습니다..." : "메시지 입력..."}
+              disabled={isLoading || isThinking}
             />
 
             <button
               type="button"
               className={`mic-btn ${isMicOn ? "active" : ""}`}
               onClick={toggleMic}
-              disabled={isLoading}
+              disabled={isLoading || isThinking}
             >
               <svg viewBox="0 0 24 24" fill="white" style={{ width: "20px" }}>
                 <path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3zm5-3a1 1 0 10-2 0 3 3 0 11-6 0 1 1 0 10-2 0 5 5 0 004 4.9V19H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.1A5 5 0 0017 11z" />
               </svg>
             </button>
 
-            <button onClick={sendMessage} className="send-btn" disabled={isLoading}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                <line x1="12" y1="19" x2="12" y2="5"></line>
-                <polyline points="5 12 12 5 19 12"></polyline>
-              </svg>
+            <button onClick={sendMessage} className="send-btn" disabled={isLoading || isThinking || !inputText.trim()}>
+              {/* 🚀 디자인 레이아웃에 영향 없이, 전송 버튼 안의 아이콘만 회전 스피너로 바뀝니다 */}
+              {isThinking ? (
+                 <div style={{ 
+                   width: '18px', 
+                   height: '18px', 
+                   border: '2px solid rgba(255,255,255,0.3)', 
+                   borderTop: '2px solid white', 
+                   borderRadius: '50%', 
+                   animation: 'spin 1s linear infinite' 
+                 }} />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              )}
             </button>
           </div>
         </div>
@@ -550,6 +543,14 @@ export function BasicChatbot({
           </button>
         )}
       </div>
+      
+      {/* 전송 버튼 내부 스피너를 위한 애니메이션만 남겨두었습니다 */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 }
