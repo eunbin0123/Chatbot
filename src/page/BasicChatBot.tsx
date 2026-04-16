@@ -168,7 +168,7 @@ useEffect(() => {
       isConnectingRef.current = true;
       try {
         const matchmakerUrl = import.meta.env.VITE_MATCHMAKER.replace("https://", "http://");
-                            const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss';
+                            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
                             const res = await fetch(`${matchmakerUrl}/signallingserver`);
                             const data = await res.json();
                             const ssUrl = `${protocol}://${data.signallingServer}`;
