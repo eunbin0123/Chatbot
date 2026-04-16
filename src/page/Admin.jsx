@@ -161,7 +161,7 @@ export default function Admin({chatbotType}) {
   const [uiLang, setUiLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("agent");
 
-  // 🚀 1. 기본값(초기화) 상태 세팅: chanu(아바타 1), gpt, 어시스턴트 없음
+  // 🚀 1. 기본값(초기화) 상태 세팅: chanu(아바타 1), gpt, 어시스턴트 없음, 프롬프트 설정 추가
   const [apiKeys, setApiKeys] = useState([
     {
       id: 1,
@@ -172,7 +172,10 @@ export default function Admin({chatbotType}) {
       voice: "",     
       language: "ko",
       llm: "gpt",
-      assistantId: ""
+      assistantId: "",
+      promptMode: "tag", // 🚀 프롬프트 설정 추가
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 설정 추가
+      promptManual: "" // 🚀 프롬프트 설정 추가
     },
     {
       id: 2,
@@ -183,7 +186,10 @@ export default function Admin({chatbotType}) {
       voice: "",     
       language: "ko",
       llm: "gemini",
-      assistantId: ""
+      assistantId: "",
+      promptMode: "tag", // 🚀 프롬프트 설정 추가
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 설정 추가
+      promptManual: "" // 🚀 프롬프트 설정 추가
     }
   ]);
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
@@ -278,6 +284,11 @@ export default function Admin({chatbotType}) {
          setAutoAssistantId("");
          setNativeRagId("");
        }
+
+       // 🚀 프롬프트 설정 동기화 추가
+       setPromptMode(agent.promptMode || "tag");
+       setSelectedTags(agent.promptTags || ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
+       setManualPrompt(agent.promptManual || "");
     }
   }, [selectedAgentId, apiKeys]);
 
@@ -600,7 +611,10 @@ export default function Admin({chatbotType}) {
         voice: "",
         language: "ko",
         llm: "gpt",
-        assistantId: ""
+        assistantId: "",
+        promptMode: "tag", // 🚀 프롬프트 초기화 반영
+        promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 초기화 반영
+        promptManual: "" // 🚀 프롬프트 초기화 반영
       }
     ]);
     setSelectedAgentId(1);
@@ -657,7 +671,10 @@ export default function Admin({chatbotType}) {
       voice: "",
       language: "ko",
       llm: "gpt",
-      assistantId: ""
+      assistantId: "",
+      promptMode: "tag", // 🚀 신규 생성 시 기본 프롬프트 설정 부여
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 신규 생성 시 기본 프롬프트 설정 부여
+      promptManual: "" // 🚀 신규 생성 시 기본 프롬프트 설정 부여
     };
     
     setApiKeys([newKeyObj, ...apiKeys]);
@@ -737,7 +754,10 @@ export default function Admin({chatbotType}) {
         ...agent, 
         character: uiCharacter,
         llm: uiLlmType,
-        assistantId: uiRagType === "native" ? autoAssistantId : ""
+        assistantId: uiRagType === "native" ? autoAssistantId : "",
+        promptMode: promptMode, // 🚀 프롬프트 모드 저장
+        promptTags: selectedTags, // 🚀 프롬프트 태그 배열 저장
+        promptManual: manualPrompt // 🚀 수동 프롬프트 텍스트 저장
       } : agent
     );
 
@@ -752,7 +772,10 @@ export default function Admin({chatbotType}) {
       layout: layout,
       avatarnum: currentAvatarNum,
       llm: savedAgent.llm || "gpt",
-      assistantId: savedAgent.assistantId || ""
+      assistantId: savedAgent.assistantId || "",
+      promptMode: savedAgent.promptMode, // 🚀 로컬스토리지에도 프롬프트 설정 저장
+      promptTags: savedAgent.promptTags, // 🚀 로컬스토리지에도 프롬프트 설정 저장
+      promptManual: savedAgent.promptManual // 🚀 로컬스토리지에도 프롬프트 설정 저장
     };
     localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
 
@@ -1720,8 +1743,13 @@ export default function Admin({chatbotType}) {
           avatarnum={currentAvatarNum}       
           
           /* 2. LLM 엔진 및 Assistant: 저장해야만 반영 (apiKeys에 있는 savedAgent 사용) */
-          llm={savedAgent.llm || "gpt"}               
+          llm={savedAgent.llm || "gpt"}                
           assistantId={savedAgent.assistantId || ""} 
+
+          /* 🚀 3. 프롬프트 설정: 저장해야만 반영되도록 전달 (savedAgent 값 참조) */
+          promptMode={savedAgent.promptMode || "tag"}
+          promptTags={savedAgent.promptTags || []}
+          promptManual={savedAgent.promptManual || ""}
         />
       )}
 

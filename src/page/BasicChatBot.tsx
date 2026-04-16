@@ -10,9 +10,36 @@ interface BasicChatbotProps {
   avatarnum: number;
   llm: string; // "gpt" 또는 "gemini"
   assistantId?: string;
+  // 🚀 프롬프트 설정용 Props 추가
+  promptMode?: string;
+  promptTags?: string[];
+  promptManual?: string;
 }
 
-export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assistantId }: BasicChatbotProps) {
+// 🚀 태그를 LLM 지시문으로 변환하기 위한 딕셔너리
+const tagInstructions: Record<string, string> = {
+  "no_politics": "정치적인 주제에 대한 질문에는 절대 답변하지 마세요.",
+  "no_religion": "종교와 관련된 논쟁이나 의견 표출을 피하세요.",
+  "no_social_controversy": "사회적 논란이 될 수 있는 주제에 대해서는 철저히 중립을 지키세요.",
+  "no_profanity": "어떤 상황에서도 비속어나 혐오 표현을 사용하지 마세요.",
+  "no_competitors": "타사나 경쟁사에 대한 언급은 피하고, 우리 서비스에 집중하세요.",
+  "no_personal_info": "사용자의 개인정보를 요구하거나 저장하지 마세요.",
+  "polite_tone": "항상 정중하고 예의 바른 존댓말로 답변하세요.",
+  "require_citation": "사실 기반의 정보를 제공할 때는 가능한 한 출처나 근거를 함께 언급하세요.",
+  "empathy_first": "답변을 시작할 때 먼저 사용자의 감정이나 상황에 공감하는 문장을 한 줄 넣어주세요."
+};
+
+export function BasicChatbot({ 
+  unrealurl, 
+  layout, 
+  autoOff, 
+  avatarnum, 
+  llm, 
+  assistantId,
+  promptMode = "tag",      // 🚀 기본값 처리
+  promptTags = [],         // 🚀 기본값 처리
+  promptManual = ""        // 🚀 기본값 처리
+}: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState({ width: 360, height: 300 }); // 초기 사이즈
   const [inputText, setInputText] = useState("");
@@ -21,7 +48,6 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
 
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
-  const widgetRef = useRef<HTMLDivElement | null>(null);
   const autoOffTimerRef = useRef<any>(null);
 
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -107,7 +133,6 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
     }, autoOff * 1000);
   };
 
-
   const disconnectStreaming = () => {
     if (psInstanceRef.current) {
       psInstanceRef.current.disconnect();
@@ -189,7 +214,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
         disconnectStreaming();
       };
     }
-  }, [isOpen]);
+  }, [isOpen, avatarnum, unrealurl]); // 🚀 의존성 배열 보강
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
@@ -213,11 +238,30 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
       resetAutoOffTimer();
       let aiResponse = "";
 
+      // ==========================================
+      // 🚀 시스템 프롬프트(지시문) 조립 시작
+      // ==========================================
+      let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
+      
+      if (promptMode === 'tag' && promptTags.length > 0) {
+        // 매핑된 지시문만 필터링 (커스텀 태그는 무시되거나, 별도 텍스트 처리가 필요할 수 있습니다)
+        const rules = promptTags.map(tag => tagInstructions[tag]).filter(Boolean);
+        if (rules.length > 0) {
+          finalSystemPrompt += rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
+        } else {
+          finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
+        }
+      } else if (promptMode === 'manual' && promptManual.trim()) {
+        finalSystemPrompt = promptManual;
+      } else {
+        finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
+      }
+      // ==========================================
+
       // 1. LLM 타입에 따른 API 호출 분기
       if (llm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
         
-        // !!수정!! Assistant ID 존재 여부에 따라 RAG 모드와 기본 모드 분기 처리
         if (assistantId) {
           // ==========================================
           // [RAG 모드] Assistant ID가 있을 때 (Assistants API 사용)
@@ -250,7 +294,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
             body: JSON.stringify({ role: "user", content: message })
           });
 
-          // Assistant 실행
+          // Assistant 실행 (🚀 여기서 instructions에 우리가 조립한 시스템 프롬프트를 덮어씌웁니다)
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
             headers: {
@@ -258,7 +302,10 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
               "Authorization": `Bearer ${gptApiKey}`,
               "OpenAI-Beta": "assistants=v2"
             },
-            body: JSON.stringify({ assistant_id: assistantId })
+            body: JSON.stringify({ 
+              assistant_id: assistantId,
+              instructions: finalSystemPrompt // 🚀 조립된 시스템 프롬프트 주입
+            })
           });
           const runData = await runRes.json();
           const runId = runData.id;
@@ -297,9 +344,9 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
 
         } else {
           // ==========================================
-          // !!수정!! [기본 모드] Assistant ID가 없을 때 (일반 Chat API 사용)
+          // [기본 모드] Assistant ID가 없을 때 (일반 Chat API 사용)
           // ==========================================
-          console.log("GPT 기본 모드로 답변을 생성합니다. (파일 연동 없음)");
+          console.log("GPT 기본 모드로 답변을 생성합니다.");
           
           const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -308,8 +355,11 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
               "Authorization": `Bearer ${gptApiKey}`
             },
             body: JSON.stringify({
-              model: "gpt-4o", // 필요시 gpt-4로 변경 가능
-              messages: [{ role: "user", content: message }]
+              model: "gpt-4o",
+              messages: [
+                { role: "system", content: finalSystemPrompt }, // 🚀 배열의 맨 앞에 시스템 프롬프트 추가
+                { role: "user", content: message }
+              ]
             })
           });
           
@@ -324,7 +374,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
 
       } else {
         // ==========================================
-        // !!수정!! [Gemini 로직] 기본 모드 & RAG 모드 지원
+        // [Gemini 로직] 기본 모드 & RAG 모드 지원
         // ==========================================
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
@@ -334,12 +384,9 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
           let parts: any[] = [{ text: message }];
 
           // 2. RAG (파일) 이 업로드 되어 있는지 확인
-          // assistantId에 우리가 아까 JSON.stringify로 넣었던 파일 정보들이 들어있습니다.
           if (assistantId) {
             try {
               const geminiFiles = JSON.parse(assistantId);
-              
-              // 질문(text) 보다 앞부분에 파일 데이터들을 차곡차곡 넣어줍니다.
               geminiFiles.forEach((file: any) => {
                 parts.unshift({
                   fileData: {
@@ -350,17 +397,18 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
               });
               console.log(`Gemini RAG 모드 작동 중 (참부된 파일 수: ${geminiFiles.length})`);
             } catch (e) {
-              console.log("Gemini 기본 모드 작동 중 (파일 없음)");
+              console.log("Gemini 파일 파싱 오류, 기본 모드로 전환");
             }
-          } else {
-            console.log("Gemini 기본 모드 작동 중 (파일 없음)");
           }
 
-          // 3. API 호출 (parts 배열 통째로 전송)
+          // 3. API 호출 (🚀 systemInstruction 항목에 조립된 프롬프트를 넣습니다)
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              systemInstruction: { // 🚀 Gemini용 시스템 프롬프트 필드
+                parts: [{ text: finalSystemPrompt }]
+              },
               contents: [{ parts: parts }]
             })
           });
@@ -383,7 +431,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
 
       // 2. 응답받은 결과를 스트리밍 환경으로 전송
       if (aiResponse) {
-              console.log("Message : %s", aiResponse);
+        console.log("Message : %s", aiResponse);
 
         psInstanceRef.current.emitUIInteraction({
           Category: "VoiceSetting",
@@ -523,4 +571,4 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
       </div>
     </>
   );
-};
+}
