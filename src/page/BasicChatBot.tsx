@@ -248,7 +248,7 @@ useEffect(() => {
     };
   }
 // 🚨 가장 중요: 의존성 배열에서 avatarnum을 반드시 제거하세요!
-}, [isOpen, unrealurl]);
+}, [isOpen]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
