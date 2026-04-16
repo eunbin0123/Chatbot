@@ -44,8 +44,15 @@ function Dashboard() {
             className={`${styles['menu-btn']} ${styles.api}`} 
             onClick={() => navigate('/metabuild')}
           >
-            <div className={styles.icon}>👨‍💻</div>
+            <div className={styles.icon}>🔶</div>
             <span>Metabuild</span>
+          </button>
+          <button 
+            className={`${styles['menu-btn']} ${styles.api}`} 
+            onClick={() => navigate('/keleverone')}
+          >
+            <div className={styles.icon}>🔷</div>
+            <span>KleverOne</span>
           </button>
           {/* <button className={`${styles['menu-btn']} ${styles.customize}`} onClick={() => navigate('/customize')}>
             <div className={styles.icon}>⚙️</div>

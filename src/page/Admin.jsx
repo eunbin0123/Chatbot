@@ -165,7 +165,7 @@ export default function Admin({chatbotType}) {
   const [apiKeys, setApiKeys] = useState([
     {
       id: 1,
-      name: "klever one",
+      name: "kleverone",
       value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
       date: "2026-04-07",
       character: "chanu", 
@@ -176,7 +176,7 @@ export default function Admin({chatbotType}) {
     },
     {
       id: 2,
-      name: "Metabuild",
+      name: "metabuild",
       value: "sk-live-12341234abcdabcd",
       date: "2026-04-16",
       character: "yuri", 
@@ -279,7 +279,7 @@ export default function Admin({chatbotType}) {
          setNativeRagId("");
        }
     }
-  }, [selectedAgentId]);
+  }, [selectedAgentId, apiKeys]);
 
   const handleVectorIdFinish = async () => {
     const currentId = nativeRagId.trim();

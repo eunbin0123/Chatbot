@@ -8,6 +8,7 @@ import { DigitalHuman } from './page/DigitalHuman';
 import ValuePage from './page/ValuePage';
 import {BasicChatbot} from './page/BasicChatBot';
 import Metabuild from './page/Metabuild';
+import KleverOne from './page/KleverOne';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/value" element={<ValuePage />} />
         <Route path="/basicadmin" element={<Admin chatbotType = "basic"/>} />
         <Route path="/metabuild" element={<Metabuild />} />
+        <Route path="/keleverone" element={<KleverOne />} />
         
       </Routes>
     </Router>

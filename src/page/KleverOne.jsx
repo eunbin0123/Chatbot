@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BasicChatbot } from "./BasicChatBot";
 
-const Metabuild = () => {
+const KleverOne = () => {
   const [config, setConfig] = useState({
     layout: "bottom-right",
-    avatarnum: 2, // 유리가 2번이라고 가정
-    llm: "gemini",
+    avatarnum: 1, // 차누가 1번이라고 가정
+    llm: "gpt",
     assistantId: ""
   });
 
@@ -16,8 +16,8 @@ const Metabuild = () => {
       const parsedConfig = JSON.parse(savedAdminConfig);
       const agents = parsedConfig.apiKeys || [];
 
-      // 🚀 여기서 "Metabuild"만 딱 찾습니다.
-      const targetAgent = agents.find(agent => agent.name === "Metabuild");
+      // 🚀 여기서 "klever one"만 딱 찾습니다.
+      const targetAgent = agents.find(agent => agent.name === "klever one");
 
       if (targetAgent) {
         const getAvatarNum = (charName) => {
@@ -29,7 +29,7 @@ const Metabuild = () => {
         setConfig({
           layout: parsedConfig.layout || "bottom-right",
           avatarnum: getAvatarNum(targetAgent.character),
-          llm: targetAgent.llm || "gemini",
+          llm: targetAgent.llm || "gpt",
           assistantId: targetAgent.assistantId || ""
         });
       }
@@ -56,4 +56,4 @@ const Metabuild = () => {
   );
 };
 
-export default Metabuild;
+export default KleverOne;
