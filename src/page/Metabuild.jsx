@@ -1,9 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BasicChatbot } from "./BasicChatBot";
-const KleverOne = () => {
-  // 전체 컨테이너 스타일
+
+const Metabuild = () => {
+  // ✨ 1. 챗봇 설정값을 관리할 State (기본값 세팅)
+  const [config, setConfig] = useState({
+    layout: "bottom-right",
+    avatarnum: 1,
+    llm: "gpt",
+    assistantId: ""
+  });
+
+  // ✨ 2. 컴포넌트 마운트 시 LocalStorage에서 설정 불러오기
+  useEffect(() => {
+    const savedConfig = localStorage.getItem("klever_widget_config");
+    if (savedConfig) {
+      setConfig(JSON.parse(savedConfig));
+    }
+  }, []);
+
   const containerStyle = {
-    position: 'relative', // 챗봇의 기준점이 됨
+    position: 'relative',
     width: '100vw',
     height: '100vh',
     overflow: 'hidden',
@@ -17,17 +33,15 @@ const KleverOne = () => {
     border: 'none',
   };
 
-  // 챗봇을 화면 오른쪽 하단 등에 고정시키기 위한 스타일
   const chatbotWrapperStyle = {
     position: 'absolute',
     bottom: '20px',
     right: '20px',
-    zIndex: 1000, // iframe보다 위에 보이도록 설정
+    zIndex: 1000,
   };
 
   return (
     <div style={containerStyle}>
-      {/* 배경이 되는 풀페이지 iframe */}
       <iframe
         src="https://www.metabuild.co.kr/"
         title="Metabuild Website"
@@ -35,22 +49,19 @@ const KleverOne = () => {
         allowFullScreen
       />
 
-      {/* iframe 위에 올라가는 챗봇 컨테이너 */}
       <div style={chatbotWrapperStyle}>
         <BasicChatbot 
           unrealurl={import.meta.env.VITE_MATCHMAKER}
-          layout={"bottom-right"} // 외부에서 정의된 layout 변수가 있어야 함
           
-          /* 1. 아바타: 변경 즉시 반영 */
-          avatarnum={1} // 외부에서 정의된 currentAvatarNum 필요
-          
-          /* 2. LLM 엔진 및 Assistant: 저장해야만 반영 */
-          llm={"gpt"} // 외부에서 정의된 savedAgent 필요
-          assistantId={""} 
+          // ✨ 3. 상태(config)에 저장된 값들을 Props로 전달
+          layout={config.layout}
+          avatarnum={config.avatarnum}
+          llm={config.llm}
+          assistantId={config.assistantId} 
         />
       </div>
     </div>
   );
 };
 
-export default KleverOne;
+export default Metabuild;

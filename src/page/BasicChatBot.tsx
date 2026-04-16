@@ -169,7 +169,7 @@ export function BasicChatbot({ unrealurl, layout, autoOff, avatarnum, llm, assis
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
-              "Value": "1"
+              "Value": String(avatarnum)
             });
             psInstance.emitUIInteraction({
               "Category": "PageSetting",

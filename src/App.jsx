@@ -1,13 +1,13 @@
 import './App.css'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './page/Dashboard';
-import Admin from './page/Admin';
+import Admin from "./page/Admin";
 import FloatingWidget from './page/FloatingWidget';
 import Customize from './page/Customize';
 import { DigitalHuman } from './page/DigitalHuman';
 import ValuePage from './page/ValuePage';
 import {BasicChatbot} from './page/BasicChatBot';
-import KleverOne from './page/Metabuild';
+import Metabuild from './page/Metabuild';
 
 export default function App() {
   return (
@@ -24,7 +24,7 @@ export default function App() {
         <Route path="/customize" element={<Customize />} />
         <Route path="/value" element={<ValuePage />} />
         <Route path="/basicadmin" element={<Admin chatbotType = "basic"/>} />
-        <Route path="/kleverone" element={<KleverOne />} />
+        <Route path="/metabuild" element={<Metabuild />} />
         
       </Routes>
     </Router>

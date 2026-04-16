@@ -173,6 +173,17 @@ export default function Admin({chatbotType}) {
       language: "ko",
       llm: "gpt",
       assistantId: ""
+    },
+    {
+      id: 2,
+      name: "Metabuild",
+      value: "sk-live-12341234abcdabcd",
+      date: "2026-04-16",
+      character: "yuri", 
+      voice: "",     
+      language: "ko",
+      llm: "gemini",
+      assistantId: ""
     }
   ]);
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
@@ -526,6 +537,18 @@ export default function Admin({chatbotType}) {
   const [selectedMcpDetail, setSelectedMcpDetail] = useState(null);
 
   useEffect(() => {
+      const savedAdminConfig = localStorage.getItem("klever_admin_config");
+      if (savedAdminConfig) {
+        const parsedConfig = JSON.parse(savedAdminConfig);
+        
+        if (parsedConfig.apiKeys) setApiKeys(parsedConfig.apiKeys);
+        if (parsedConfig.layout) setLayout(parsedConfig.layout);
+        if (parsedConfig.autoOff !== undefined) setAutoOff(parsedConfig.autoOff);
+        if (parsedConfig.autoOffSec !== undefined) setAutoOffSec(parsedConfig.autoOffSec);
+      }
+    }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setIsModalOpen(false);
@@ -709,14 +732,38 @@ export default function Admin({chatbotType}) {
   const confirmSave = () => { 
     setIsModalOpen(false); 
     
-    setApiKeys(apiKeys.map(agent => 
+    const updatedApiKeys = apiKeys.map(agent => 
       agent.id === selectedAgentId ? { 
         ...agent, 
         character: uiCharacter,
         llm: uiLlmType,
         assistantId: uiRagType === "native" ? autoAssistantId : ""
       } : agent
-    ));
+    );
+
+    setApiKeys(updatedApiKeys);
+
+    // 1. 외부 챗봇(KleverOne) 화면을 위한 설정 저장 (이전 단계에서 작성한 코드)
+    const savedAgent = updatedApiKeys.find(a => a.id === selectedAgentId);
+    const selectedHuman = digitalHumans.find(human => human.id === savedAgent.character);
+    const currentAvatarNum = selectedHuman ? selectedHuman.num : 1;
+
+    const widgetConfig = {
+      layout: layout,
+      avatarnum: currentAvatarNum,
+      llm: savedAgent.llm || "gpt",
+      assistantId: savedAgent.assistantId || ""
+    };
+    localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
+
+    // ✨ 2. Admin 화면 복구를 위한 전체 상태 저장 (추가된 코드)
+    const adminConfig = {
+      apiKeys: updatedApiKeys,
+      layout: layout,
+      autoOff: autoOff,
+      autoOffSec: autoOffSec
+    };
+    localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
     
     setAlertMessage("성공적으로 적용되었습니다!"); 
   };
