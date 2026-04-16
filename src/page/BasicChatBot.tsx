@@ -156,99 +156,67 @@ export function BasicChatbot({
     setIsMicOn(false);
     setIsOpen(false);
   };
-// 💡 상단에 연결 중 상태를 추적하기 위한 ref를 하나 추가하세요.
-const isConnectingRef = useRef(false);
 
-useEffect(() => {
-  // 인스턴스가 없고, 연결 시도 중이 아닐 때만 실행
-  if (isOpen && !psInstanceRef.current && videoWrapperRef.current && !isConnectingRef.current) {
-    let isCancelled = false; // 언마운트 시 비동기 작업 중단용 플래그
+  useEffect(() => {
+    if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
+      const connect = async () => {
+        try {
+          const matchmakerUrl = unrealurl.replace("https://", "http://");
+          const protocol = window.location.protocol === 'https:' ? 'ws' : 'wss';
+          const res = await fetch(`${matchmakerUrl}/signallingserver`);
+          const data = await res.json();
+          const ssUrl = `${protocol}://${data.signallingServer}`;
+          const config = new Config({
+            initialSettings: {
+              ss: ssUrl,
+              AutoPlayVideo: true,
+              AutoConnect: true,
+              HoveringMouse: true,
+              KeyboardInput: false,
+              MouseInput: false,
+            },
+          });
 
-    const connect = async () => {
-      isConnectingRef.current = true;
-      try {
-        const matchmakerUrl = unrealurl.replace("https://", "http://");
-        // 💡 수정: https면 wss, http면 ws를 사용하도록 변경
-        const protocol = window.location.protocol = 'ws'; 
-        
-        const res = await fetch(`${matchmakerUrl}/signallingserver`);
-        const data = await res.json();
-        
-        // 💡 API를 기다리는 동안 위젯이 닫혔다면 즉시 중단
-        if (isCancelled) {
-          isConnectingRef.current = false;
-          return;
+          const psInstance = new PixelStreaming(config);
+          psInstanceRef.current = psInstance;
+
+          psInstance.addEventListener("videoInitialized", () => {
+            if (videoWrapperRef.current) {
+              videoWrapperRef.current.innerHTML = "";
+              videoWrapperRef.current.appendChild(psInstance.videoElementParent);
+              setIsLoading(false);
+            }
+
+            psInstance.emitUIInteraction({
+              "Category": "SystemSetting",
+              "Type": "WebConnected",
+              "Width": "1280",
+              "Height": "720"
+            });
+            psInstance.emitUIInteraction({
+              "Category": "AvatarSetting",
+              "Type": "AvatarNum",
+              "Value": String(avatarnum)
+            });
+            psInstance.emitUIInteraction({
+              "Category": "PageSetting",
+              "Type": "WindowSize"
+            });
+          });
+
+        } catch (err) {
+          console.error("Matchmaker connection failed:", err);
+          setIsLoading(false);
         }
+      };
 
-        const ssUrl = `${protocol}://${data.signallingServer}`;
-        const config = new Config({
-          initialSettings: {
-            ss: ssUrl,
-            AutoPlayVideo: true,
-            AutoConnect: true,
-            HoveringMouse: true,
-            KeyboardInput: false,
-            MouseInput: false,
-          },
-        });
+      connect();
 
-        const psInstance = new PixelStreaming(config);
-        psInstanceRef.current = psInstance;
-
-        psInstance.addEventListener("videoInitialized", () => {
-          // 💡 비디오 초기화 시점에도 위젯이 닫혀있는지 체크
-          if (isCancelled) {
-            psInstance.disconnect();
-            return;
-          }
-
-          if (videoWrapperRef.current) {
-            videoWrapperRef.current.innerHTML = "";
-            videoWrapperRef.current.appendChild(psInstance.videoElementParent);
-            setIsLoading(false);
-          }
-
-          // 초기 UI Interaction 이벤트 전송
-          psInstance.emitUIInteraction({
-            "Category": "SystemSetting",
-            "Type": "WebConnected",
-            "Width": "1280",
-            "Height": "720"
-          });
-          psInstance.emitUIInteraction({
-            "Category": "AvatarSetting",
-            "Type": "AvatarNum",
-            "Value": String(avatarnum)
-          });
-          psInstance.emitUIInteraction({
-            "Category": "PageSetting",
-            "Type": "WindowSize"
-          });
-        });
-
-        // 💡 안정성을 위해 스트리밍 끊김 감지 이벤트 추가 (선택사항)
-        psInstance.addEventListener("disconnect", () => {
-          console.warn("Pixel Streaming이 서버와 연결이 끊어졌습니다.");
-          if (isOpen) setIsLoading(false);
-        });
-
-      } catch (err) {
-        console.error("Matchmaker connection failed:", err);
-        if (!isCancelled) setIsLoading(false);
-      } finally {
-        isConnectingRef.current = false;
-      }
-    };
-
-    connect();
-
-    return () => {
-      isCancelled = true; // cleanup 시 플래그 활성화
-      disconnectStreaming();
-    };
-  }
-// 🚨 가장 중요: 의존성 배열에서 avatarnum을 반드시 제거하세요!
-}, [isOpen, unrealurl]);
+      return () => {
+        disconnectStreaming();
+      };
+    }
+  }, [isOpen, unrealurl]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
