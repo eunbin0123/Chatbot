@@ -171,7 +171,7 @@ export function BasicChatbot({
 
           // 2. 픽셀 스트리밍 연결 설정
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; // 수정됨: https일 경우 wss 사용
+          const protocol = window.location.protocol === 'https:' ? 'ws' : 'ws'; // 수정됨: https일 경우 wss 사용
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
