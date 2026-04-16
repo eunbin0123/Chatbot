@@ -214,7 +214,7 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, avatarnum, unrealurl]); // 🚀 의존성 배열 보강
+  }, [isOpen, unrealurl]); // 🚀 의존성 배열 보강
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
