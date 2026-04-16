@@ -164,8 +164,8 @@
     transition: transform .2s, background .2s !important;
     display: flex;
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 40px;
+    right: 40px;
     box-shadow: 0 4px 12px #3b82f666 !important;
 
 }
