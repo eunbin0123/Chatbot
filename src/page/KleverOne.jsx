@@ -17,7 +17,7 @@ const KleverOne = () => {
       const agents = parsedConfig.apiKeys || [];
 
       // 🚀 여기서 "klever one"만 딱 찾습니다.
-      const targetAgent = agents.find(agent => agent.name === "klever one");
+      const targetAgent = agents.find(agent => agent.name === "chilloen");
 
       if (targetAgent) {
         const getAvatarNum = (charName) => {

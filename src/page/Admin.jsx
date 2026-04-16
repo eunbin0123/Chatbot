@@ -165,7 +165,7 @@ export default function Admin({chatbotType}) {
   const [apiKeys, setApiKeys] = useState([
     {
       id: 1,
-      name: "kleverone",
+      name: "chilloen",
       value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
       date: "2026-04-07",
       character: "chanu", 
@@ -604,7 +604,7 @@ export default function Admin({chatbotType}) {
     setApiKeys([
       {
         id: 1,
-        name: "klever one",
+        name: "chilloen",
         value: "sk-live-a1b2c3d4e5f6g7h8i9j0",
         date: "2026-04-07",
         character: "chanu",
