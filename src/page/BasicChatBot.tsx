@@ -10,6 +10,9 @@ interface BasicChatbotProps {
   llm: string; // "gpt" 또는 "gemini"
   assistantId?: string;
   agentName?: string;
+  promptMode?: string;
+  promptTags?: string[];
+  promptManual?: string;
 }
 
 const tagInstructions: Record<string, string> = {
@@ -30,7 +33,10 @@ export function BasicChatbot({
   avatarnum, 
   llm, 
   assistantId,
-  agentName = "" 
+  agentName = "",
+  promptMode = "tag",
+  promptTags = [],
+  promptManual = "" 
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState({ width: 360, height: 300 }); 
@@ -38,12 +44,12 @@ export function BasicChatbot({
   const [isLoading, setIsLoading] = useState(false); 
   const [isThinking, setIsThinking] = useState(false); 
   const [isMicOn, setIsMicOn] = useState(false);
-  const [isResizing, setIsResizing] = useState(false); // 🚀 드래그 상태 관리
+  const [isResizing, setIsResizing] = useState(false); 
 
   const [promptSettings, setPromptSettings] = useState({
-    mode: "tag",
-    tags: [] as string[],
-    manual: ""
+    mode: promptMode,
+    tags: promptTags,
+    manual: promptManual
   });
 
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -52,7 +58,7 @@ export function BasicChatbot({
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
-    setIsResizing(true); // 🚀 드래그 시작
+    setIsResizing(true); 
 
     const onMouseMove = (mouseMoveEvent: MouseEvent) => {
       setSize((prev) => {
@@ -67,7 +73,7 @@ export function BasicChatbot({
     };
     
     const onMouseUp = () => {
-      setIsResizing(false); // 🚀 드래그 종료
+      setIsResizing(false); 
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
@@ -150,9 +156,15 @@ export function BasicChatbot({
               : agents[0];
 
             if (targetAgent) {
+              const resolvedTags = (targetAgent.promptTags || []).map((tagId: string) => {
+                const customMatch = (targetAgent.customTags || []).find((t: any) => t.id === tagId);
+                if (customMatch) return customMatch.label;
+                return tagId;
+              });
+
               setPromptSettings({
                 mode: targetAgent.promptMode || "tag",
-                tags: targetAgent.promptTags || [],
+                tags: resolvedTags,
                 manual: targetAgent.promptManual || ""
               });
 
@@ -166,6 +178,12 @@ export function BasicChatbot({
                 targetAvatarNum = getAvatarNum(targetAgent.character);
               }
             }
+          } else {
+             setPromptSettings({
+                mode: promptMode,
+                tags: promptTags,
+                manual: promptManual
+             });
           }
 
           const matchmakerUrl = unrealurl.replace("https://", "http://");
@@ -225,7 +243,7 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, unrealurl, agentName, avatarnum]); 
+  }, [isOpen, unrealurl]); 
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
@@ -251,7 +269,15 @@ export function BasicChatbot({
       let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
       
       if (mode === 'tag' && tags.length > 0) {
-        const rules = tags.map(tag => tagInstructions[tag]).filter(Boolean);
+        const rules = tags.map(tag => {
+          if (tagInstructions[tag]) {
+            return tagInstructions[tag];
+          } else if (!tag.startsWith("custom_")) {
+            return tag;
+          }
+          return null;
+        }).filter(Boolean);
+
         if (rules.length > 0) {
           finalSystemPrompt += rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
         } else {
@@ -407,6 +433,7 @@ export function BasicChatbot({
       }
 
       if (aiResponse) {
+        console.log("AI 응답:", aiResponse);
         psInstanceRef.current.emitUIInteraction({
           Category: "VoiceSetting",
           Type: "Script",
@@ -480,7 +507,6 @@ export function BasicChatbot({
     <>
       <div id="fw-app-root">
         
-        {/* 🚀 핵심 해결책: 드래그하는 동안 화면 전체에 투명 방어막을 쳐서 iframe이 마우스를 뺏어가는 것을 원천 차단! */}
         {isResizing && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, cursor: 'pointer' }} />
         )}

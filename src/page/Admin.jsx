@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BasicChatbot } from "./BasicChatBot";
 import { DigitalHuman } from "./DigitalHuman";
-import "../css/Admin.css"; // 🚀 CSS 외부 파일 분리 적용 완료!
+import "../css/Admin.css"; 
 import { 
   uploadFilesToVectorStore, 
   linkVectorStoreToAssistant, 
   uploadFilesToGemini 
 } from "../services/ragService";
 
-// 🚀 다국어 번역 딕셔너리
 const i18n = {
   ko: {
     subTitle: "AI 디지털 휴먼 에이전트 설정",
@@ -161,7 +160,6 @@ export default function Admin({chatbotType}) {
   const [uiLang, setUiLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("agent");
 
-  // 🚀 1. 기본값(초기화) 상태 세팅: chanu(아바타 1), gpt, 어시스턴트 없음, 프롬프트 설정 추가
   const [apiKeys, setApiKeys] = useState([
     {
       id: 1,
@@ -173,9 +171,10 @@ export default function Admin({chatbotType}) {
       language: "ko",
       llm: "gpt",
       assistantId: "",
-      promptMode: "tag", // 🚀 프롬프트 설정 추가
-      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 설정 추가
-      promptManual: "" // 🚀 프롬프트 설정 추가
+      promptMode: "tag",
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"],
+      customTags: [],
+      promptManual: ""
     },
     {
       id: 2,
@@ -187,20 +186,17 @@ export default function Admin({chatbotType}) {
       language: "ko",
       llm: "gemini",
       assistantId: "",
-      promptMode: "tag", // 🚀 프롬프트 설정 추가
-      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 설정 추가
-      promptManual: "" // 🚀 프롬프트 설정 추가
+      promptMode: "tag",
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"],
+      customTags: [],
+      promptManual: ""
     }
   ]);
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
   
-  // ==========================================================
-  // 🚀 UI 조작용 임시 변수 (화면에서 클릭할 때만 변함, 챗봇 엔진과 분리됨)
-  // ==========================================================
   const [uiCharacter, setUiCharacter] = useState("chanu");
   const [uiLlmType, setUiLlmType] = useState("gpt"); 
   const [uiRagType, setUiRagType] = useState("none"); 
-  // ==========================================================
 
   const [customLlmUrl, setCustomLlmUrl] = useState("");
   const [nativeRagId, setNativeRagId] = useState("");
@@ -269,7 +265,6 @@ export default function Admin({chatbotType}) {
     }
   ]);
 
-  // 에이전트(API 키) 드롭다운 변경 시, UI 값들을 해당 에이전트에 저장된 값으로 동기화
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
     if (agent) {
@@ -285,9 +280,9 @@ export default function Admin({chatbotType}) {
          setNativeRagId("");
        }
 
-       // 🚀 프롬프트 설정 동기화 추가
        setPromptMode(agent.promptMode || "tag");
        setSelectedTags(agent.promptTags || ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
+       setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
     }
   }, [selectedAgentId, apiKeys]);
@@ -323,7 +318,7 @@ export default function Admin({chatbotType}) {
       const newFiles = files.map((file) => ({
         id: Date.now() + Math.random(),
         name: file.name,
-        fileObject: file, // 🚀 실제 객체 저장
+        fileObject: file,
       }));
       setRagFiles([...ragFiles, ...newFiles]);
     }
@@ -356,13 +351,12 @@ export default function Admin({chatbotType}) {
       const newFiles = files.map((file) => ({
         id: Date.now() + Math.random(),
         name: file.name,
-        fileObject: file, // 🚀 실제 객체 저장
+        fileObject: file, 
       }));
       setRagFiles([...ragFiles, ...newFiles]);
     }
   };
 
-  // 🚀 텍스트와 파일을 하나의 지식 묶음(Bundle)으로 통합하여 업로드
   const handleUploadKnowledge = () => {
     if (!ragInput.trim() && ragFiles.length === 0 && ragTexts.length === 0) return;
     
@@ -371,7 +365,6 @@ export default function Admin({chatbotType}) {
     setTimeout(async () => {
       try {
         if (ragFiles.length > 0) {
-          // 🚀 완벽 차단: 서버 전송 전 실제 파일이 유효한지 검사
           for (const f of ragFiles) {
             const actualFile = f.fileObject || f.file;
             if (!actualFile || !(actualFile instanceof Blob)) {
@@ -400,7 +393,6 @@ export default function Admin({chatbotType}) {
         const bundleItems = [];
         const today = new Date().toISOString().split('T')[0];
         
-        // 1. 현재 텍스트 입력창에 작성 중이던 내용
         if (ragInput.trim()) {
           const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
           bundleItems.push({
@@ -410,7 +402,6 @@ export default function Admin({chatbotType}) {
           });
         }
 
-        // 2. 이미 칩(엔터) 형태로 올라가 있는 텍스트들
         ragTexts.forEach((item, index) => {
           bundleItems.push({
             id: `k_${Date.now()}_2_${index}`,
@@ -419,17 +410,15 @@ export default function Admin({chatbotType}) {
           });
         });
         
-        // 3. 첨부된 문서 파일들
         ragFiles.forEach(file => {
           bundleItems.push({
             id: file.id,
             type: 'document',
             content: file.name,
-            fileObject: file.fileObject || file.file // 원본 파일 유지
+            fileObject: file.fileObject || file.file 
           });
         });
         
-        // 🚀 대표 이름 및 대표 아이콘 설정 로직
         let repName = "새 지식 데이터";
         let mainType = "document";
         
@@ -496,7 +485,6 @@ export default function Admin({chatbotType}) {
       if (subItem.type === 'text' || subItem.type === 'url') {
         newTexts.push({ id: subItem.id, type: subItem.type, content: subItem.content });
       } else if (subItem.type === 'document') {
-        // 🚀 불러올 때 원본 파일 객체도 같이 복원!!
         newFiles.push({ id: subItem.id, name: subItem.content, fileObject: subItem.fileObject });
       }
     });
@@ -612,9 +600,10 @@ export default function Admin({chatbotType}) {
         language: "ko",
         llm: "gpt",
         assistantId: "",
-        promptMode: "tag", // 🚀 프롬프트 초기화 반영
-        promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 프롬프트 초기화 반영
-        promptManual: "" // 🚀 프롬프트 초기화 반영
+        promptMode: "tag", 
+        promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], 
+        customTags: [],
+        promptManual: "" 
       }
     ]);
     setSelectedAgentId(1);
@@ -672,9 +661,10 @@ export default function Admin({chatbotType}) {
       language: "ko",
       llm: "gpt",
       assistantId: "",
-      promptMode: "tag", // 🚀 신규 생성 시 기본 프롬프트 설정 부여
-      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], // 🚀 신규 생성 시 기본 프롬프트 설정 부여
-      promptManual: "" // 🚀 신규 생성 시 기본 프롬프트 설정 부여
+      promptMode: "tag", 
+      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"], 
+      customTags: [],
+      promptManual: "" 
     };
     
     setApiKeys([newKeyObj, ...apiKeys]);
@@ -742,10 +732,6 @@ export default function Admin({chatbotType}) {
     setIsModalOpen(true);
   };
 
-  // =====================================================================
-  // 🚀 핵심 변경점: '저장(적용)' 버튼 클릭 시, 선택된 API 키 객체 안에
-  // UI에서 조작하던 캐릭터, LLM, Assistant ID 값을 모두 값으로 밀어넣습니다.
-  // =====================================================================
   const confirmSave = () => { 
     setIsModalOpen(false); 
     
@@ -755,15 +741,15 @@ export default function Admin({chatbotType}) {
         character: uiCharacter,
         llm: uiLlmType,
         assistantId: uiRagType === "native" ? autoAssistantId : "",
-        promptMode: promptMode, // 🚀 프롬프트 모드 저장
-        promptTags: selectedTags, // 🚀 프롬프트 태그 배열 저장
-        promptManual: manualPrompt // 🚀 수동 프롬프트 텍스트 저장
+        promptMode: promptMode,
+        promptTags: selectedTags,
+        customTags: customTags, 
+        promptManual: manualPrompt 
       } : agent
     );
 
     setApiKeys(updatedApiKeys);
 
-    // 1. 외부 챗봇(KleverOne) 화면을 위한 설정 저장 (이전 단계에서 작성한 코드)
     const savedAgent = updatedApiKeys.find(a => a.id === selectedAgentId);
     const selectedHuman = digitalHumans.find(human => human.id === savedAgent.character);
     const currentAvatarNum = selectedHuman ? selectedHuman.num : 1;
@@ -773,13 +759,13 @@ export default function Admin({chatbotType}) {
       avatarnum: currentAvatarNum,
       llm: savedAgent.llm || "gpt",
       assistantId: savedAgent.assistantId || "",
-      promptMode: savedAgent.promptMode, // 🚀 로컬스토리지에도 프롬프트 설정 저장
-      promptTags: savedAgent.promptTags, // 🚀 로컬스토리지에도 프롬프트 설정 저장
-      promptManual: savedAgent.promptManual // 🚀 로컬스토리지에도 프롬프트 설정 저장
+      promptMode: savedAgent.promptMode, 
+      promptTags: savedAgent.promptTags, 
+      customTags: savedAgent.customTags,
+      promptManual: savedAgent.promptManual 
     };
     localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
 
-    // ✨ 2. Admin 화면 복구를 위한 전체 상태 저장 (추가된 코드)
     const adminConfig = {
       apiKeys: updatedApiKeys,
       layout: layout,
@@ -790,7 +776,6 @@ export default function Admin({chatbotType}) {
     
     setAlertMessage("성공적으로 적용되었습니다!"); 
   };
-  // =====================================================================
 
   const cancelSave = () => {
     setIsModalOpen(false);
@@ -924,10 +909,15 @@ export default function Admin({chatbotType}) {
     { id: "top-left", label: "좌측 상단", boxClass: "tl" },
   ];
 
-  // 🚀 챗봇 컴포넌트에 넘길 값들 계산
   const savedAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
   const selectedHuman = digitalHumans.find(human => human.id === uiCharacter);
-  const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; // 🚀 아바타는 uiCharacter 기준으로 바로바로 바뀜
+  const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; 
+
+  const resolvedPromptTags = (savedAgent.promptTags || []).map(tagId => {
+    const customMatch = (savedAgent.customTags || []).find(t => t.id === tagId);
+    if (customMatch) return customMatch.label;
+    return tagId;
+  });
 
   return (
     <div className={`app-root ${!isDarkMode ? "light-mode" : ""}`}>
@@ -1254,7 +1244,6 @@ export default function Admin({chatbotType}) {
                         )}
 
                         <div className="rag-layout-container">
-                          {/* 🚀 왼쪽 사이드바: 저장된 지식 목록 */}
                           <div className={`rag-sidebar ${!isKnowledgeListOpen ? 'collapsed' : ''}`}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: isKnowledgeListOpen ? '8px' : '0' }}>
                               <button 
@@ -1290,7 +1279,6 @@ export default function Admin({chatbotType}) {
                                       onClick={() => handleToggleKnowledgeSelection(item.id)}
                                     >
                                       <div className="knowledge-info">
-                                        {/* 🚀 커스텀 다중선택 체크박스 */}
                                         <input 
                                           type="checkbox" 
                                           className="knowledge-checkbox" 
@@ -1303,7 +1291,6 @@ export default function Admin({chatbotType}) {
                                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                           </svg>
                                         )}
-                                        {/* 🚀 여러 개 항목이 묶였을 경우 표시할 폴더/컬렉션 아이콘 */}
                                         {item.type === 'collection' && (
                                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -1351,7 +1338,6 @@ export default function Admin({chatbotType}) {
                             )}
                           </div>
 
-                          {/* 🚀 오른쪽 메인 영역: 신규 데이터 학습 폼 (ChatGPT 스타일) */}
                           <div className="rag-main-content">
                             <label style={{ display: "block", marginBottom: "8px" }}>
                               신규 데이터 학습 (텍스트, URL, 파일)
@@ -1731,24 +1717,15 @@ export default function Admin({chatbotType}) {
           layout={layout} 
         />
       ) : (
-        // ==========================================================
-        // 🚀 챗봇은 이제 UI 변수와 저장된 apiKeys 변수를 골라서 받습니다!
-        // ==========================================================
         <BasicChatbot 
           unrealurl={import.meta.env.VITE_MATCHMAKER}
           layout={layout}
           autoOff={autoOff * 60 + autoOffSec}
-          
-          /* 1. 아바타: 변경 즉시 반영 (화면의 uiCharacter 사용) */
           avatarnum={currentAvatarNum}       
-          
-          /* 2. LLM 엔진 및 Assistant: 저장해야만 반영 (apiKeys에 있는 savedAgent 사용) */
           llm={savedAgent.llm || "gpt"}                
           assistantId={savedAgent.assistantId || ""} 
-
-          /* 🚀 3. 프롬프트 설정: 저장해야만 반영되도록 전달 (savedAgent 값 참조) */
           promptMode={savedAgent.promptMode || "tag"}
-          promptTags={savedAgent.promptTags || []}
+          promptTags={resolvedPromptTags} 
           promptManual={savedAgent.promptManual || ""}
         />
       )}
