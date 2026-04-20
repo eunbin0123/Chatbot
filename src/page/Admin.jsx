@@ -881,12 +881,12 @@ export default function Admin({chatbotType}) {
   };
 
   const promptTagOptions = [
-    { id: "no_politics", label: "정치" },
-    { id: "no_religion", label: "종교" },
-    { id: "no_social_controversy", label: "사회적 논란" },
-    { id: "no_profanity", label: "비속어 및 혐오 표현" },
-    { id: "no_competitors", label: "경쟁사 언급" },
-    { id: "no_personal_info", label: "개인정보 요구" },
+    { id: "no_politics", label: "정치 언급 금지" },
+    { id: "no_religion", label: "종교 언급 금지" },
+    { id: "no_social_controversy", label: "사회적 논란 언급 금지" },
+    { id: "no_profanity", label: "비속어 및 혐오 표현 금지" },
+    { id: "no_competitors", label: "경쟁사 언급 금지" },
+    { id: "no_personal_info", label: "개인정보 요구 금지" },
     { id: "polite_tone", label: "존댓말" },
     { id: "require_citation", label: "출처 표기" },
     { id: "empathy_first", label: "공감과 위로" },
