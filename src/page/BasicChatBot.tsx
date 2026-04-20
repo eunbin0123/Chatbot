@@ -15,6 +15,12 @@ interface BasicChatbotProps {
   promptManual?: string;
 }
 
+// 🚀 채팅 내역 저장을 위한 타입 선언
+interface ChatMessage {
+  role: "user" | "ai";
+  text: string;
+}
+
 const tagInstructions: Record<string, string> = {
   "no_politics": "정치적인 주제에 대한 질문에는 절대 답변하지 마세요.",
   "no_religion": "종교와 관련된 논쟁이나 의견 표출을 피하세요.",
@@ -46,9 +52,21 @@ export function BasicChatbot({
   const [isMicOn, setIsMicOn] = useState(false);
   const [isResizing, setIsResizing] = useState(false); 
 
+  // 🚀 채팅 히스토리 상태 추가
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const historyEndRef = useRef<HTMLDivElement | null>(null);
+
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+
+  // 🚀 대화가 추가되면 자동으로 맨 아래로 스크롤
+  useEffect(() => {
+    if (isHistoryOpen && historyEndRef.current) {
+      historyEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory, isHistoryOpen]);
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -132,10 +150,10 @@ export function BasicChatbot({
     disconnectStreaming();
     setIsMicOn(false);
     setIsOpen(false);
+    setIsHistoryOpen(false); // 창 닫을 때 히스토리 창도 초기화
   };
 
-  // 🚀 1. 픽셀스트리밍 연결 (의존성 배열을 최소화하여 불필요한 재연결 방지)
-  // 부모(Admin.js)에서 넘겨준 props를 그대로 신뢰하여 연결합니다.
+  // 1. 픽셀스트리밍 연결
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
@@ -176,7 +194,7 @@ export function BasicChatbot({
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
-              "Value": String(avatarnum) // 현재 Props로 받은 아바타 번호 즉시 전송
+              "Value": String(avatarnum) 
             });
             
             psInstance.emitUIInteraction({
@@ -197,9 +215,9 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, unrealurl]); // 🚀 오직 창이 열릴 때, URL이 바뀔 때만 재연결 실행
+  }, [isOpen, unrealurl]); 
 
-  // 🚀 2. 아바타 실시간 변경 (재연결 없이 언리얼에 명령만 전송)
+  // 2. 아바타 실시간 변경
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
       psInstanceRef.current.emitUIInteraction({
@@ -210,7 +228,7 @@ export function BasicChatbot({
     }
   }, [avatarnum, isOpen]); 
 
-  // 🚀 3. 메시지 전송 로직 (로컬 스토리지 의존성 완전 제거, 부모가 준 Props 그대로 사용)
+  // 3. 메시지 전송 로직
   const sendMessage = async () => {
     const message = inputText.trim();
     if (!message || !psInstanceRef.current || isLoading || isThinking) return;
@@ -218,35 +236,30 @@ export function BasicChatbot({
     try {
       setIsThinking(true); 
       setInputText("");
-      let aiResponse = "";
 
-      let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
+      // 🚀 사용자의 입력을 히스토리에 즉시 추가
+      setChatHistory(prev => [...prev, { role: "user", text: message }]);
+
+      let aiResponse = "";
+      let finalSystemPrompt = ""; 
       
-      // 🚀 Admin.js가 건네준 promptMode와 promptTags Props를 실시간으로 참조합니다.
       if (promptMode === 'tag' && promptTags.length > 0) {
         const rules = promptTags.map(tag => {
           if (tagInstructions[tag]) {
-            // 기본 제공 태그
             return tagInstructions[tag];
           } else if (!tag.startsWith("custom_")) {
-            // 커스텀 태그 (Admin에서 텍스트로 변환해서 넘겨줌)
             return tag;
           }
           return null;
         }).filter(Boolean);
 
         if (rules.length > 0) {
-          finalSystemPrompt += rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
-        } else {
-          finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
+          finalSystemPrompt = rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
         }
       } else if (promptMode === 'manual' && promptManual.trim()) {
         finalSystemPrompt = promptManual;
-      } else {
-        finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
       }
 
-      // -- LLM 호출부 --
       if (llm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
         
@@ -276,6 +289,11 @@ export function BasicChatbot({
             body: JSON.stringify({ role: "user", content: message })
           });
 
+          const runBody: any = { assistant_id: assistantId };
+          if (finalSystemPrompt) {
+            runBody.instructions = finalSystemPrompt;
+          }
+
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
             headers: {
@@ -283,10 +301,7 @@ export function BasicChatbot({
               "Authorization": `Bearer ${gptApiKey}`,
               "OpenAI-Beta": "assistants=v2"
             },
-            body: JSON.stringify({ 
-              assistant_id: assistantId,
-              instructions: finalSystemPrompt
-            })
+            body: JSON.stringify(runBody)
           });
           const runData = await runRes.json();
           const runId = runData.id;
@@ -320,6 +335,12 @@ export function BasicChatbot({
           }
 
         } else {
+          const messagesPayload = [];
+          if (finalSystemPrompt) {
+            messagesPayload.push({ role: "system", content: finalSystemPrompt });
+          }
+          messagesPayload.push({ role: "user", content: message });
+
           const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -328,10 +349,7 @@ export function BasicChatbot({
             },
             body: JSON.stringify({
               model: "gpt-4o",
-              messages: [
-                { role: "system", content: finalSystemPrompt },
-                { role: "user", content: message }
-              ]
+              messages: messagesPayload
             })
           });
           
@@ -366,15 +384,17 @@ export function BasicChatbot({
             }
           }
 
+          const geminiBody: any = {
+            contents: [{ parts: parts }]
+          };
+          if (finalSystemPrompt) {
+            geminiBody.systemInstruction = { parts: [{ text: finalSystemPrompt }] };
+          }
+
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              systemInstruction: { 
-                parts: [{ text: finalSystemPrompt }]
-              },
-              contents: [{ parts: parts }]
-            })
+            body: JSON.stringify(geminiBody)
           });
 
           const data = await response.json();
@@ -391,7 +411,15 @@ export function BasicChatbot({
       }
 
       if (aiResponse) {
-        console.log("AI 응답:", aiResponse);
+        // 🚀 AI 응답을 히스토리에 즉시 추가
+        setChatHistory(prev => [...prev, { role: "ai", text: aiResponse }]);
+
+        const isRagUsed = !!assistantId;
+        console.log(`[🤖 AI 응답 로그] 
+  - 사용 모델: ${llm.toUpperCase()}
+  - RAG(문서/어시스턴트) 사용 유무: ${isRagUsed ? "O (사용됨)" : "X (사용안함)"}
+  - 응답 내용: ${aiResponse}`);
+
         psInstanceRef.current.emitUIInteraction({
           Category: "VoiceSetting",
           Type: "Script",
@@ -423,9 +451,9 @@ export function BasicChatbot({
     }
   };
 
+  // 상단 닫기 (X) 버튼
   const CloseButton = () => {
     const isBottomLeft = layout === "bottom-left";
-
     const style: React.CSSProperties = {
       position: 'absolute',
       top: '12px',
@@ -461,6 +489,45 @@ export function BasicChatbot({
     );
   };
 
+  // 🚀 햄버거 메뉴 버튼 (X 버튼 바로 옆에 위치)
+  const HistoryButton = () => {
+    const isBottomLeft = layout === "bottom-left";
+    const style: React.CSSProperties = {
+      position: 'absolute',
+      top: '12px',
+      // X버튼 기준 위치(12px) + 버튼너비(30px) + 간격(6px) = 48px
+      [isBottomLeft ? 'left' : 'right']: '48px', 
+      zIndex: 10006,
+      cursor: 'pointer',
+      background: isHistoryOpen ? 'rgba(59, 130, 246, 0.9)' : 'rgba(0,0,0,0.3)',
+      borderRadius: '50%',
+      width: '30px',
+      height: '30px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '4px',
+      border: 'none',
+      transition: 'all 0.2s ease',
+      backdropFilter: 'blur(4px)'
+    };
+
+    return (
+      <button
+        style={style}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsHistoryOpen(!isHistoryOpen);
+        }}
+      >
+        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
+        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
+        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
+      </button>
+    );
+  };
+
   return (
     <>
       <div id="fw-app-root">
@@ -488,7 +555,31 @@ export function BasicChatbot({
             className="fw-video-wrapper" 
             style={{ pointerEvents: isResizing ? 'none' : 'auto' }}
           />
-          {isOpen && <CloseButton />}
+          
+          {isOpen && (
+            <>
+              <CloseButton />
+              <HistoryButton />
+            </>
+          )}
+
+          {/* 🚀 채팅 내역 오버레이 UI */}
+          {isOpen && isHistoryOpen && (
+            <div className="fw-chat-history">
+              {chatHistory.length === 0 ? (
+                <div className="fw-chat-empty">아직 대화 내역이 없습니다.</div>
+              ) : (
+                chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`fw-chat-bubble ${msg.role}`}>
+                    {msg.text}
+                  </div>
+                ))
+              )}
+              {/* 스크롤 위치를 잡아주는 빈 div */}
+              <div ref={historyEndRef} />
+            </div>
+          )}
+
           <ResizeHandle />
           
           <div className="fw-input-bar">
@@ -542,13 +633,6 @@ export function BasicChatbot({
           </button>
         )}
       </div>
-      
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </>
   );
 }

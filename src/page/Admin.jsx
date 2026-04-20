@@ -2,11 +2,15 @@ import React, { useState, useEffect, useRef } from "react";
 import { BasicChatbot } from "./BasicChatBot";
 import { DigitalHuman } from "./DigitalHuman";
 import "../css/Admin.css"; 
+
 import { 
-  uploadFilesToVectorStore, 
-  linkVectorStoreToAssistant, 
-  uploadFilesToGemini 
-} from "../services/ragService";
+  loadSavedConfig, 
+  syncTagsToStorage, 
+  saveConfiguration, 
+  processVectorIdFinish, 
+  processKnowledgeUpload, 
+  createBundle 
+} from "../utils/adminUtils";
 
 const i18n = {
   ko: {
@@ -219,6 +223,13 @@ export default function Admin({chatbotType}) {
   const [savedKnowledge, setSavedKnowledge] = useState([]);
   const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
 
+  // 🚀 새롭게 추가: LLM 엔진별 RAG 데이터를 임시 보관하는 캐시 상태
+  const [ragCache, setRagCache] = useState({
+    gpt: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
+    gemini: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
+    llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] }
+  });
+
   const fileInputRef = useRef(null);
 
   const [mcpList, setMcpList] = useState([
@@ -265,15 +276,20 @@ export default function Admin({chatbotType}) {
     }
   ]);
 
+  // 에이전트 전환 시
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
     if (agent) {
+       const currentLlm = agent.llm || "gpt";
        setUiCharacter(agent.character || "chanu");
-       setUiLlmType(agent.llm || "gpt");
-       if (agent.assistantId) {
+       setUiLlmType(currentLlm);
+       
+       const loadedAssistantId = agent.assistantId || "";
+       
+       if (loadedAssistantId) {
          setUiRagType("native");
-         setAutoAssistantId(agent.assistantId);
-         setNativeRagId(agent.assistantId);
+         setAutoAssistantId(loadedAssistantId);
+         setNativeRagId(loadedAssistantId);
        } else {
          setUiRagType("none");
          setAutoAssistantId("");
@@ -284,24 +300,69 @@ export default function Admin({chatbotType}) {
        setSelectedTags(agent.promptTags || ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
        setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
+
+       // 🚀 에이전트 전환 시 해당 에이전트의 데이터로 캐시 재구성
+       setRagCache({
+         gpt: { 
+           nativeRagId: currentLlm === 'gpt' ? loadedAssistantId : "", 
+           autoAssistantId: currentLlm === 'gpt' ? loadedAssistantId : "", 
+           savedKnowledge: [] 
+         },
+         gemini: { 
+           nativeRagId: currentLlm === 'gemini' ? loadedAssistantId : "", 
+           autoAssistantId: currentLlm === 'gemini' ? loadedAssistantId : "", 
+           savedKnowledge: [] 
+         },
+         llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] }
+       });
+
+       setSavedKnowledge([]);
+       setSelectedKnowledgeIds([]);
+       setRagInput("");
+       setRagFiles([]);
+       setRagTexts([]);
     }
   }, [selectedAgentId]);
 
-  const handleVectorIdFinish = async () => {
-    const currentId = nativeRagId.trim();
-    if (!currentId || uiLlmType !== "gpt" || uiRagType !== "native") return;
-    if (currentId === lastVerifiedVsId) return; 
+  // 🚀 수정됨: 엔진(LLM)을 바꿀 때 데이터를 날리지 않고 서로 "스왑"하도록 개선
+  const handleLlmChange = (e) => {
+    const newLlm = e.target.value;
+    if (newLlm !== uiLlmType) {
+      // 1. 기존에 작업하던 내용을 캐시에 백업
+      setRagCache(prev => ({
+        ...prev,
+        [uiLlmType]: { nativeRagId, autoAssistantId, savedKnowledge }
+      }));
 
+      // 2. 넘어갈 새 엔진의 데이터를 캐시에서 불러오기
+      const nextCache = ragCache[newLlm] || { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] };
+      setNativeRagId(nextCache.nativeRagId || "");
+      setAutoAssistantId(nextCache.autoAssistantId || "");
+      setSavedKnowledge(nextCache.savedKnowledge || []);
+      
+      setUiLlmType(newLlm);
+      
+      // 3. 화면 하단의 새 입력 폼(찌꺼기)만 초기화
+      setSelectedKnowledgeIds([]);
+      setRagInput("");
+      setRagFiles([]);
+      setRagTexts([]);
+    }
+  };
+
+  // 🚀 수정됨: Assistant ID 검증 완료 후 불필요한 성공 알림 제거
+  const handleVectorIdFinish = async () => {
     setIsUploading(true); 
-    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY || "YOUR_OPENAI_API_KEY";
-    const result = await linkVectorStoreToAssistant(openaiApiKey, currentId);
-    
-    if (result.success) {
-      setAutoAssistantId(result.assistantId);
-      setLastVerifiedVsId(currentId);
-      setAlertMessage(result.message);
-    } else {
-      setAlertMessage(result.message);
+    const result = await processVectorIdFinish(nativeRagId, uiLlmType, uiRagType, lastVerifiedVsId);
+    if (!result.skip) {
+      if (result.success) {
+        setAutoAssistantId(result.assistantId);
+        setLastVerifiedVsId(result.currentId);
+        // 성공 시 알림 띄우지 않음 (조용하게 넘어감)
+      } else {
+        // 실패 시 에러 원인 알림은 유지
+        setAlertMessage(result.message);
+      }
     }
     setIsUploading(false);
   };
@@ -364,82 +425,12 @@ export default function Admin({chatbotType}) {
     
     setTimeout(async () => {
       try {
-        if (ragFiles.length > 0) {
-          for (const f of ragFiles) {
-            const actualFile = f.fileObject || f.file;
-            if (!actualFile || !(actualFile instanceof Blob)) {
-              throw new Error(`[데이터 유실] '${f.name}'의 실제 파일 데이터가 없습니다. 첨부파일(x) 버튼을 눌러 지우고, 다시 첨부해주세요.`);
-            }
-          }
-
-          if (uiRagType !== "native") {
-            throw new Error("현재 파일 업로드는 Native 연동일 때만 작동합니다.");
-          }
-
-          if (uiLlmType === "gpt") {
-            if (!nativeRagId.trim()) {
-              throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
-            }
-            const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-            await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
-
-          } else if (uiLlmType === "gemini") {
-            const geminiApiKey = import.meta.env.VITE_GEMINAI_API_KEY;
-            const uploadedGeminiFiles = await uploadFilesToGemini(geminiApiKey, ragFiles);
-            setAutoAssistantId(JSON.stringify(uploadedGeminiFiles));
-          }
+        const geminiAssistantId = await processKnowledgeUpload(ragFiles, uiLlmType, uiRagType, nativeRagId);
+        if (geminiAssistantId) {
+          setAutoAssistantId(geminiAssistantId);
         }
 
-        const bundleItems = [];
-        const today = new Date().toISOString().split('T')[0];
-        
-        if (ragInput.trim()) {
-          const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
-          bundleItems.push({
-            id: `k_${Date.now()}_1`,
-            type: isUrl ? 'url' : 'text',
-            content: ragInput.trim()
-          });
-        }
-
-        ragTexts.forEach((item, index) => {
-          bundleItems.push({
-            id: `k_${Date.now()}_2_${index}`,
-            type: item.type,
-            content: item.content
-          });
-        });
-        
-        ragFiles.forEach(file => {
-          bundleItems.push({
-            id: file.id,
-            type: 'document',
-            content: file.name,
-            fileObject: file.fileObject || file.file 
-          });
-        });
-        
-        let repName = "새 지식 데이터";
-        let mainType = "document";
-        
-        if (bundleItems.length > 0) {
-          repName = bundleItems[0].content;
-          mainType = bundleItems[0].type;
-          
-          if (bundleItems.length > 1) {
-            const shortName = repName.length > 12 ? repName.substring(0, 12) + "..." : repName;
-            repName = `${shortName} 외 ${bundleItems.length - 1}건`;
-            mainType = "collection";
-          }
-        }
-
-        const newBundle = {
-          id: `bundle_${Date.now()}`,
-          type: mainType,
-          name: repName,
-          date: today,
-          items: bundleItems
-        };
+        const newBundle = createBundle(ragInput, ragTexts, ragFiles);
         
         setSavedKnowledge([newBundle, ...savedKnowledge]);
         setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
@@ -536,16 +527,8 @@ export default function Admin({chatbotType}) {
   const [selectedMcpDetail, setSelectedMcpDetail] = useState(null);
 
   useEffect(() => {
-      const savedAdminConfig = localStorage.getItem("klever_admin_config");
-      if (savedAdminConfig) {
-        const parsedConfig = JSON.parse(savedAdminConfig);
-        
-        if (parsedConfig.apiKeys) setApiKeys(parsedConfig.apiKeys);
-        if (parsedConfig.layout) setLayout(parsedConfig.layout);
-        if (parsedConfig.autoOff !== undefined) setAutoOff(parsedConfig.autoOff);
-        if (parsedConfig.autoOffSec !== undefined) setAutoOffSec(parsedConfig.autoOffSec);
-      }
-    }, []);
+    loadSavedConfig(setApiKeys, setLayout, setAutoOff, setAutoOffSec);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -572,14 +555,6 @@ export default function Admin({chatbotType}) {
       setUiRagType("none");
     }
   }, [uiLlmType, uiRagType]);
-
-  useEffect(() => {
-    if (!apiKeys.find(a => a.id === selectedAgentId) && apiKeys.length > 0) {
-      setSelectedAgentId(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedAgentId]);
-
-  const activeAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
 
   const isFormValid = 
     apiKeys.length > 0 &&
@@ -732,68 +707,14 @@ export default function Admin({chatbotType}) {
     setIsModalOpen(true);
   };
 
-  // 🚀 새로 추가된 함수: 태그 변경 시 스토리지에 즉시 동기화
-  const syncTagsToStorage = (newCustomTags, newSelectedTags) => {
-    const updatedApiKeys = apiKeys.map(agent => 
-      agent.id === selectedAgentId ? { 
-        ...agent, 
-        promptTags: newSelectedTags,
-        customTags: newCustomTags 
-      } : agent
-    );
-    setApiKeys(updatedApiKeys);
-
-    const adminConfig = JSON.parse(localStorage.getItem("klever_admin_config") || "{}");
-    adminConfig.apiKeys = updatedApiKeys;
-    localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
-
-    const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
-    widgetConfig.promptTags = newSelectedTags;
-    widgetConfig.customTags = newCustomTags;
-    localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
-  };
-
   const confirmSave = () => { 
     setIsModalOpen(false); 
     
-    const updatedApiKeys = apiKeys.map(agent => 
-      agent.id === selectedAgentId ? { 
-        ...agent, 
-        character: uiCharacter,
-        llm: uiLlmType,
-        assistantId: uiRagType === "native" ? autoAssistantId : "",
-        promptMode: promptMode,
-        promptTags: selectedTags,
-        customTags: customTags, 
-        promptManual: manualPrompt 
-      } : agent
-    );
-
-    setApiKeys(updatedApiKeys);
-
-    const savedAgent = updatedApiKeys.find(a => a.id === selectedAgentId);
-    const selectedHuman = digitalHumans.find(human => human.id === savedAgent.character);
-    const currentAvatarNum = selectedHuman ? selectedHuman.num : 1;
-
-    const widgetConfig = {
-      layout: layout,
-      avatarnum: currentAvatarNum,
-      llm: savedAgent.llm || "gpt",
-      assistantId: savedAgent.assistantId || "",
-      promptMode: savedAgent.promptMode, 
-      promptTags: savedAgent.promptTags, 
-      customTags: savedAgent.customTags,
-      promptManual: savedAgent.promptManual 
-    };
-    localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
-
-    const adminConfig = {
-      apiKeys: updatedApiKeys,
-      layout: layout,
-      autoOff: autoOff,
-      autoOffSec: autoOffSec
-    };
-    localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
+    saveConfiguration({
+      apiKeys, selectedAgentId, uiCharacter, uiLlmType, uiRagType,
+      autoAssistantId, promptMode, selectedTags, customTags, manualPrompt,
+      layout, autoOff, autoOffSec, digitalHumans, setApiKeys
+    });
     
     setAlertMessage("성공적으로 적용되었습니다!"); 
   };
@@ -853,7 +774,6 @@ export default function Admin({chatbotType}) {
     return options;
   };
 
-  // 🚀 태그 토글, 추가, 삭제 기능 수정 (syncTagsToStorage 적용)
   const togglePromptTag = (tagId) => {
     let updatedSelectedTags;
     if (selectedTags.includes(tagId)) {
@@ -862,7 +782,7 @@ export default function Admin({chatbotType}) {
       updatedSelectedTags = [...selectedTags, tagId];
     }
     setSelectedTags(updatedSelectedTags);
-    syncTagsToStorage(customTags, updatedSelectedTags);
+    syncTagsToStorage(apiKeys, selectedAgentId, customTags, updatedSelectedTags, setApiKeys);
   };
 
   const handleAddCustomTag = () => {
@@ -879,7 +799,7 @@ export default function Admin({chatbotType}) {
     setSelectedTags(updatedSelectedTags);
     setCustomTagInput("");
 
-    syncTagsToStorage(updatedCustomTags, updatedSelectedTags);
+    syncTagsToStorage(apiKeys, selectedAgentId, updatedCustomTags, updatedSelectedTags, setApiKeys);
   };
 
   const handleCustomTagKeyDown = (e) => {
@@ -898,7 +818,7 @@ export default function Admin({chatbotType}) {
     setCustomTags(updatedCustomTags);
     setSelectedTags(updatedSelectedTags);
 
-    syncTagsToStorage(updatedCustomTags, updatedSelectedTags);
+    syncTagsToStorage(apiKeys, selectedAgentId, updatedCustomTags, updatedSelectedTags, setApiKeys);
   };
 
   const promptTagOptions = [
@@ -947,6 +867,7 @@ export default function Admin({chatbotType}) {
 
   const savedAgent = apiKeys.find(a => a.id === selectedAgentId) || apiKeys[0];
   const selectedHuman = digitalHumans.find(human => human.id === uiCharacter);
+
   const currentAvatarNum = selectedHuman ? selectedHuman.num : 1; 
 
   const resolvedPromptTags = (savedAgent.promptTags || []).map(tagId => {
@@ -1176,7 +1097,7 @@ export default function Admin({chatbotType}) {
                       type="radio"
                       value="gpt"
                       checked={uiLlmType === "gpt"}
-                      onChange={(e) => setUiLlmType(e.target.value)}
+                      onChange={handleLlmChange}
                     />
                     <span className="radio-label">OpenAI GPT-5.3</span>
                   </label>
@@ -1189,7 +1110,7 @@ export default function Admin({chatbotType}) {
                       type="radio"
                       value="gemini"
                       checked={uiLlmType === "gemini"}
-                      onChange={(e) => setUiLlmType(e.target.value)}
+                      onChange={handleLlmChange}
                     />
                     <span className="radio-label">Google Gemini 3.1 Pro</span>
                   </label>
@@ -1202,7 +1123,7 @@ export default function Admin({chatbotType}) {
                       type="radio"
                       value="llamon"
                       checked={uiLlmType === "llamon"}
-                      onChange={(e) => setUiLlmType(e.target.value)}
+                      onChange={handleLlmChange}
                       disabled
                     />
                     <span className="radio-label">LLaMON</span>
@@ -1216,7 +1137,7 @@ export default function Admin({chatbotType}) {
                       type="radio"
                       value="custom"
                       checked={uiLlmType === "custom"}
-                      onChange={(e) => setUiLlmType(e.target.value)}
+                      onChange={handleLlmChange}
                       disabled
                     />
                     <span className="radio-label">직접 연결 (Custom)</span>
@@ -1324,17 +1245,17 @@ export default function Admin({chatbotType}) {
                                         <div className="knowledge-icon">
                                           {item.type === 'document' && (
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                          </svg>
-                                        )}
-                                        {item.type === 'collection' && (
-                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                          </svg>
-                                        )}
-                                      </div>
-                                      <div className="knowledge-details">
-                                        <span className="knowledge-name" title={item.name}>{item.name}</span>
+                                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                            </svg>
+                                          )}
+                                          {item.type === 'collection' && (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                            </svg>
+                                          )}
+                                        </div>
+                                        <div className="knowledge-details">
+                                          <span className="knowledge-name" title={item.name}>{item.name}</span>
                                           <span className="knowledge-date">{item.date} 업로드됨</span>
                                         </div>
                                       </div>

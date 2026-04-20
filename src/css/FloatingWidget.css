@@ -132,9 +132,11 @@
       background: #2563eb; /* 마우스 올렸을 때 조금 더 진하게 */
 
 }
-#fw-app-root send-btn:active {
+/* 요기 점 빠진거 채웠습니다! */
+#fw-app-root .send-btn:active {
   transform: scale(0.9); /* 클릭했을 때 살짝 작아지는 효과 */
 }
+
 #fw-app-root .mic-btn {
         color: #555 !important;
     cursor: pointer !important;
@@ -288,4 +290,70 @@
 #fw-app-root .fw-resize-handle:hover svg {
     opacity: 1;
     stroke: #3b82f6; /* 호버 시 파란색 포인트 */
+}
+
+
+/* ========================================================= */
+/* 🚀 여기부터 새로 추가된 채팅 내역(스크립트) 오버레이 스타일 */
+/* ========================================================= */
+
+#fw-app-root .fw-chat-history {
+    position: absolute;
+    top: 50px; /* 상단 버튼(X, 햄버거) 아래 위치 */
+    left: 12px;
+    right: 12px;
+    bottom: 72px; /* 하단 입력바 위로 간격 확보 */
+    background: rgba(17, 17, 17, 0.85); /* 다크 테마 배경에 맞춰 반투명 설정 */
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    z-index: 10005;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+/* 스크롤바 디자인 */
+#fw-app-root .fw-chat-history::-webkit-scrollbar {
+    width: 6px;
+}
+#fw-app-root .fw-chat-history::-webkit-scrollbar-track {
+    background: transparent;
+}
+#fw-app-root .fw-chat-history::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+#fw-app-root .fw-chat-empty {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    margin-top: 30px;
+}
+
+#fw-app-root .fw-chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    word-wrap: break-word;
+    color: white;
+}
+
+/* 사용자 채팅 (파란색 말풍선, 오른쪽 정렬) */
+#fw-app-root .fw-chat-bubble.user {
+    align-self: flex-end;
+    background: #3b82f6;
+    border-bottom-right-radius: 4px; /* 말풍선 꼬리 느낌 */
+}
+
+/* AI 채팅 (반투명 회색 말풍선, 왼쪽 정렬) */
+#fw-app-root .fw-chat-bubble.ai {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.15);
+    border-bottom-left-radius: 4px;
 }
