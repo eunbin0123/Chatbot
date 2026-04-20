@@ -46,12 +46,6 @@ export function BasicChatbot({
   const [isMicOn, setIsMicOn] = useState(false);
   const [isResizing, setIsResizing] = useState(false); 
 
-  const [promptSettings, setPromptSettings] = useState({
-    mode: promptMode,
-    tags: promptTags,
-    manual: promptManual
-  });
-
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -140,52 +134,12 @@ export function BasicChatbot({
     setIsOpen(false);
   };
 
+  // 🚀 1. 픽셀스트리밍 연결 (의존성 배열을 최소화하여 불필요한 재연결 방지)
+  // 부모(Admin.js)에서 넘겨준 props를 그대로 신뢰하여 연결합니다.
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
         try {
-          let targetAvatarNum = avatarnum; 
-
-          const savedAdminConfig = localStorage.getItem("klever_admin_config");
-          if (savedAdminConfig) {
-            const parsedConfig = JSON.parse(savedAdminConfig);
-            const agents = parsedConfig.apiKeys || [];
-            
-            const targetAgent = agentName 
-              ? agents.find((a: any) => a.name === agentName) 
-              : agents[0];
-
-            if (targetAgent) {
-              const resolvedTags = (targetAgent.promptTags || []).map((tagId: string) => {
-                const customMatch = (targetAgent.customTags || []).find((t: any) => t.id === tagId);
-                if (customMatch) return customMatch.label;
-                return tagId;
-              });
-
-              setPromptSettings({
-                mode: targetAgent.promptMode || "tag",
-                tags: resolvedTags,
-                manual: targetAgent.promptManual || ""
-              });
-
-              const getAvatarNum = (charName: string) => {
-                if (charName === "yuri") return 2;
-                if (charName === "sujin") return 4;
-                return 1;
-              };
-              
-              if (targetAgent.character) {
-                targetAvatarNum = getAvatarNum(targetAgent.character);
-              }
-            }
-          } else {
-             setPromptSettings({
-                mode: promptMode,
-                tags: promptTags,
-                manual: promptManual
-             });
-          }
-
           const matchmakerUrl = unrealurl.replace("https://", "http://");
           const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss'; 
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
@@ -222,7 +176,7 @@ export function BasicChatbot({
             psInstance.emitUIInteraction({
               "Category": "AvatarSetting",
               "Type": "AvatarNum",
-              "Value": String(targetAvatarNum)
+              "Value": String(avatarnum) // 현재 Props로 받은 아바타 번호 즉시 전송
             });
             
             psInstance.emitUIInteraction({
@@ -243,8 +197,9 @@ export function BasicChatbot({
         disconnectStreaming();
       };
     }
-  }, [isOpen, unrealurl]); 
+  }, [isOpen, unrealurl]); // 🚀 오직 창이 열릴 때, URL이 바뀔 때만 재연결 실행
 
+  // 🚀 2. 아바타 실시간 변경 (재연결 없이 언리얼에 명령만 전송)
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
       psInstanceRef.current.emitUIInteraction({
@@ -253,8 +208,9 @@ export function BasicChatbot({
         Value: String(avatarnum)
       });
     }
-  }, [avatarnum, isOpen]);
+  }, [avatarnum, isOpen]); 
 
+  // 🚀 3. 메시지 전송 로직 (로컬 스토리지 의존성 완전 제거, 부모가 준 Props 그대로 사용)
   const sendMessage = async () => {
     const message = inputText.trim();
     if (!message || !psInstanceRef.current || isLoading || isThinking) return;
@@ -264,15 +220,16 @@ export function BasicChatbot({
       setInputText("");
       let aiResponse = "";
 
-      const { mode, tags, manual } = promptSettings;
-
       let finalSystemPrompt = "당신은 KLEVER ONE의 전문적이고 친절한 AI 안내 에이전트입니다. 다음 규칙을 엄격히 준수하세요:\n";
       
-      if (mode === 'tag' && tags.length > 0) {
-        const rules = tags.map(tag => {
+      // 🚀 Admin.js가 건네준 promptMode와 promptTags Props를 실시간으로 참조합니다.
+      if (promptMode === 'tag' && promptTags.length > 0) {
+        const rules = promptTags.map(tag => {
           if (tagInstructions[tag]) {
+            // 기본 제공 태그
             return tagInstructions[tag];
           } else if (!tag.startsWith("custom_")) {
+            // 커스텀 태그 (Admin에서 텍스트로 변환해서 넘겨줌)
             return tag;
           }
           return null;
@@ -283,12 +240,13 @@ export function BasicChatbot({
         } else {
           finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
         }
-      } else if (mode === 'manual' && manual.trim()) {
-        finalSystemPrompt = manual;
+      } else if (promptMode === 'manual' && promptManual.trim()) {
+        finalSystemPrompt = promptManual;
       } else {
         finalSystemPrompt = "당신은 KLEVER ONE의 친절한 AI 에이전트입니다.";
       }
 
+      // -- LLM 호출부 --
       if (llm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
         
