@@ -11,7 +11,7 @@ import {
 // 🚀 다국어 번역 딕셔너리
 const i18n = {
   ko: {
-    subTitle: "디지털휴먼 AI 에이전트 설정 환경",
+    subTitle: "AI 디지털 휴먼 에이전트 설정",
     reset: "초기화",
     save: "변경사항 저장",
     tab1: "1. 에이전트 설정",

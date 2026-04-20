@@ -38,7 +38,7 @@ function Dashboard() {
             onClick={() => navigate('/basicadmin')}
           >
             <div className={styles.icon}>👨‍💻</div>
-            <span>Basic Chatbot Admin</span>
+            <span>Human Agent Setting</span>
           </button>
           <button 
             className={`${styles['menu-btn']} ${styles.api}`} 
