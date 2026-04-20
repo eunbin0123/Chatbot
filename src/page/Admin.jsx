@@ -285,7 +285,7 @@ export default function Admin({chatbotType}) {
        setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
     }
-  }, [selectedAgentId, apiKeys]);
+  }, [selectedAgentId]);
 
   const handleVectorIdFinish = async () => {
     const currentId = nativeRagId.trim();
