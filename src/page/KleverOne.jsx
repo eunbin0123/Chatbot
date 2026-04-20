@@ -6,7 +6,10 @@ const KleverOne = () => {
     layout: "bottom-right",
     avatarnum: 1, // 차누가 1번이라고 가정
     llm: "gpt",
-    assistantId: ""
+    assistantId: "",
+    promptMode: "tag", // 🚀 추가됨
+    promptTags: [],    // 🚀 추가됨
+    promptManual: ""   // 🚀 추가됨
   });
 
   useEffect(() => {
@@ -16,7 +19,7 @@ const KleverOne = () => {
       const parsedConfig = JSON.parse(savedAdminConfig);
       const agents = parsedConfig.apiKeys || [];
 
-      // 🚀 여기서 "klever one"만 딱 찾습니다.
+      // 🚀 여기서 "chilloen"만 딱 찾습니다.
       const targetAgent = agents.find(agent => agent.name === "chilloen");
 
       if (targetAgent) {
@@ -26,11 +29,21 @@ const KleverOne = () => {
           return 1;
         };
 
+        // 🚀 핵심: Admin.js에서 했던 것처럼 커스텀 태그를 실제 텍스트로 변환
+        const resolvedTags = (targetAgent.promptTags || []).map(tagId => {
+          const customMatch = (targetAgent.customTags || []).find(t => t.id === tagId);
+          if (customMatch) return customMatch.label;
+          return tagId; // 기본 제공 태그는 ID 그대로 넘김
+        });
+
         setConfig({
           layout: parsedConfig.layout || "bottom-right",
           avatarnum: getAvatarNum(targetAgent.character),
           llm: targetAgent.llm || "gpt",
-          assistantId: targetAgent.assistantId || ""
+          assistantId: targetAgent.assistantId || "",
+          promptMode: targetAgent.promptMode || "tag", // 🚀 추가됨
+          promptTags: resolvedTags,                    // 🚀 추가됨 (변환된 태그 배열)
+          promptManual: targetAgent.promptManual || "" // 🚀 추가됨
         });
       }
     }
@@ -51,6 +64,9 @@ const KleverOne = () => {
           llm={config.llm}
           assistantId={config.assistantId} 
           agentName='chilloen'
+          promptMode={config.promptMode}    
+          promptTags={config.promptTags}    
+          promptManual={config.promptManual} 
         />
       </div>
     </div>
