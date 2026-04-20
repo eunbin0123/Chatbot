@@ -732,6 +732,27 @@ export default function Admin({chatbotType}) {
     setIsModalOpen(true);
   };
 
+  // 🚀 새로 추가된 함수: 태그 변경 시 스토리지에 즉시 동기화
+  const syncTagsToStorage = (newCustomTags, newSelectedTags) => {
+    const updatedApiKeys = apiKeys.map(agent => 
+      agent.id === selectedAgentId ? { 
+        ...agent, 
+        promptTags: newSelectedTags,
+        customTags: newCustomTags 
+      } : agent
+    );
+    setApiKeys(updatedApiKeys);
+
+    const adminConfig = JSON.parse(localStorage.getItem("klever_admin_config") || "{}");
+    adminConfig.apiKeys = updatedApiKeys;
+    localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
+
+    const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
+    widgetConfig.promptTags = newSelectedTags;
+    widgetConfig.customTags = newCustomTags;
+    localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
+  };
+
   const confirmSave = () => { 
     setIsModalOpen(false); 
     
@@ -832,12 +853,16 @@ export default function Admin({chatbotType}) {
     return options;
   };
 
+  // 🚀 태그 토글, 추가, 삭제 기능 수정 (syncTagsToStorage 적용)
   const togglePromptTag = (tagId) => {
+    let updatedSelectedTags;
     if (selectedTags.includes(tagId)) {
-      setSelectedTags(selectedTags.filter(id => id !== tagId));
+      updatedSelectedTags = selectedTags.filter(id => id !== tagId);
     } else {
-      setSelectedTags([...selectedTags, tagId]);
+      updatedSelectedTags = [...selectedTags, tagId];
     }
+    setSelectedTags(updatedSelectedTags);
+    syncTagsToStorage(customTags, updatedSelectedTags);
   };
 
   const handleAddCustomTag = () => {
@@ -847,9 +872,14 @@ export default function Admin({chatbotType}) {
     const tagId = `custom_${Date.now()}`;
     const newTag = { id: tagId, label: trimmed };
     
-    setCustomTags([...customTags, newTag]);
-    setSelectedTags([...selectedTags, tagId]);
+    const updatedCustomTags = [...customTags, newTag];
+    const updatedSelectedTags = [...selectedTags, tagId];
+
+    setCustomTags(updatedCustomTags);
+    setSelectedTags(updatedSelectedTags);
     setCustomTagInput("");
+
+    syncTagsToStorage(updatedCustomTags, updatedSelectedTags);
   };
 
   const handleCustomTagKeyDown = (e) => {
@@ -861,8 +891,14 @@ export default function Admin({chatbotType}) {
 
   const handleRemoveCustomTag = (e, tagId) => {
     e.stopPropagation();
-    setCustomTags(customTags.filter(tag => tag.id !== tagId));
-    setSelectedTags(selectedTags.filter(id => id !== tagId));
+    
+    const updatedCustomTags = customTags.filter(tag => tag.id !== tagId);
+    const updatedSelectedTags = selectedTags.filter(id => id !== tagId);
+
+    setCustomTags(updatedCustomTags);
+    setSelectedTags(updatedSelectedTags);
+
+    syncTagsToStorage(updatedCustomTags, updatedSelectedTags);
   };
 
   const promptTagOptions = [
