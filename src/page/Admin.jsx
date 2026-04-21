@@ -5,7 +5,8 @@ import "../css/Admin.css";
 
 import { 
   loadSavedConfig, 
-  syncTagsToStorage, 
+  syncTagsToStorage,
+  syncMcpToStorage, 
   saveConfiguration, 
   processVectorIdFinish, 
   processKnowledgeUpload, 
@@ -115,7 +116,7 @@ const i18n = {
     studioBtn: "Tạo & Chỉnh sửa Người",
     agentSelectLabel: "Chọn Đại lý (Khóa API)",
     llmTitle: "Kết nối Công cụ AI (LLM)",
-    llmDesc: "Chọn mô hình ngôn ngữ cơ sở làm bộ não của đại lý.",
+    llmDesc: "Chọn mô hình ngôn ngữ cơ sở làm bộ脑 của đại lý.",
     ragTitle: "Cài đặt Cơ sở Kiến thức (RAG)",
     ragDesc: "Kết nối cơ sở kiến thức mà công cụ sẽ tham khảo khi trả lời.",
     mcpTitle: "Tích hợp Công cụ dựa trên MCP",
@@ -179,21 +180,6 @@ export default function Admin({chatbotType}) {
       promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"],
       customTags: [],
       promptManual: ""
-    },
-    {
-      id: 2,
-      name: "metabuild",
-      value: "sk-live-12341234abcdabcd",
-      date: "2026-04-16",
-      character: "yuri", 
-      voice: "",     
-      language: "ko",
-      llm: "gemini",
-      assistantId: "",
-      promptMode: "tag",
-      promptTags: ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"],
-      customTags: [],
-      promptManual: ""
     }
   ]);
   const [selectedAgentId, setSelectedAgentId] = useState(1); 
@@ -231,56 +217,11 @@ export default function Admin({chatbotType}) {
 
   const fileInputRef = useRef(null);
 
-  const [mcpList, setMcpList] = useState([
-    { 
-      id: "web_search", 
-      name: "웹 검색 (Web Search)", 
-      desc: "실시간 웹 검색 결과를 기반으로 최신 정보를 반영합니다.", 
-      type: "built-in", 
-      active: true,
-      apiKey: "",
-      parameters: [
-        { key: "query", type: "string", desc: "검색어" },
-        { key: "num_results", type: "number", desc: "가져올 결과 개수 (기본: 5)" }
-      ]
-    },
-    { 
-      id: "calculator", 
-      name: "수학 및 코드 실행기", 
-      desc: "복잡한 수식이나 코드를 실행하여 정확한 결과값을 도출합니다.", 
-      type: "built-in", 
-      active: false,
-      apiKey: "",
-      parameters: [
-        { key: "expression", type: "string", desc: "계산할 수학 수식 또는 코드" }
-      ]
-    },
-    { 
-      id: "custom_1", 
-      name: "기상청 날씨 API", 
-      desc: "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0", 
-      type: "custom", 
-      active: true,
-      apiKey: "sk-weather-gov-abc123def456", 
-      parameters: [
-        { key: "ServiceKey", type: "string", desc: "발급받은 공공데이터포털 인증키" },
-        { key: "pageNo", type: "number", desc: "페이지 번호 (기본값: 1)" },
-        { key: "numOfRows", type: "number", desc: "한 페이지 결과 수 (기본값: 10)" },
-        { key: "dataType", type: "string", desc: "응답자료형식 (XML / JSON)" },
-        { key: "base_date", type: "string", desc: "발표일자 (YYYYMMDD)" },
-        { key: "base_time", type: "string", desc: "발표시각 (HHMM)" },
-        { key: "nx", type: "number", desc: "예보지점 X 좌표" },
-        { key: "ny", type: "number", desc: "예보지점 Y 좌표" }
-      ]
-    }
-  ]);
+  // 🚀 MCP 리스트 상태 초기화 (useEffect에서 로드됨)
+  const [mcpList, setMcpList] = useState([]);
 
-  // 🚀 Admin 페이지 한정: 3초 후 챗봇 강제 클릭 이벤트 발생
-  // 이 로직은 Admin 화면에서만 동작하며, 챗봇 컴포넌트 자체를 오염시키지 않습니다.
-  // 🚀 3초 후 챗봇 열기 버튼을 강제로 클릭하는 타이머 로직
   useEffect(() => {
     const timer = setTimeout(() => {
-      // 이미지에서 확인한 클래스명 '.fw-toggle'을 정확히 타겟팅해서 클릭합니다.
       const toggleButton = document.querySelector(".fw-toggle");
       if (toggleButton) {
         toggleButton.click();
@@ -290,7 +231,7 @@ export default function Admin({chatbotType}) {
     return () => clearTimeout(timer);
   }, []);
 
-  // 에이전트 전환 시
+  // 🚨 핵심 수정 부분: 의존성 배열에 apiKeys 추가
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
     if (agent) {
@@ -335,7 +276,7 @@ export default function Admin({chatbotType}) {
        setRagFiles([]);
        setRagTexts([]);
     }
-  }, [selectedAgentId]);
+  }, [selectedAgentId, apiKeys]); // 👈 여기에 apiKeys가 추가됨
 
   const handleLlmChange = (e) => {
     const newLlm = e.target.value;
@@ -431,20 +372,64 @@ export default function Admin({chatbotType}) {
     
     setTimeout(async () => {
       try {
-        const geminiAssistantId = await processKnowledgeUpload(ragFiles, uiLlmType, uiRagType, nativeRagId);
+        let combinedFiles = [...ragFiles];
+        let textContent = "";
+
+        const fetchTextFromUrl = async (url) => {
+          try {
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+            doc.querySelectorAll('script, style, noscript, iframe, nav, footer').forEach(el => el.remove());
+            const pureText = doc.body.textContent || "";
+            return pureText.replace(/\s+/g, ' ').trim(); 
+          } catch (e) {
+            console.warn("URL 크롤링 실패:", e);
+            return `https://blog.naver.com/tvis/220104346957`;
+          }
+        };
+
+        for (const item of ragTexts) {
+          if (item.type === 'url') {
+            textContent += `\n\n--- [웹사이트 출처: ${item.content}] ---\n`;
+            textContent += await fetchTextFromUrl(item.content); 
+          } else {
+            textContent += `\n\n--- [사용자 입력 지식] ---\n${item.content}`;
+          }
+        }
+
+        if (ragInput.trim()) {
+          const isUrl = ragInput.startsWith("http://") || ragInput.startsWith("https://");
+          if (isUrl) {
+            textContent += `\n\n--- [웹사이트 출처: ${ragInput.trim()}] ---\n`;
+            textContent += await fetchTextFromUrl(ragInput.trim());
+          } else {
+            textContent += `\n\n--- [사용자 입력 지식] ---\n${ragInput.trim()}`;
+          }
+        }
+
+        if (textContent.trim() !== "") {
+          const textBlob = new Blob([textContent], { type: 'text/plain' });
+          const textFile = new File([textBlob], `scraped_knowledge_${Date.now()}.txt`, { type: 'text/plain' });
+          
+          combinedFiles.push({
+            id: `txt_${Date.now()}`,
+            name: "웹사이트_및_텍스트_학습데이터.txt", 
+            fileObject: textFile 
+          });
+        }
+
+        const geminiAssistantId = await processKnowledgeUpload(combinedFiles, uiLlmType, uiRagType, nativeRagId);
         if (geminiAssistantId) {
           setAutoAssistantId(geminiAssistantId);
         }
 
         const newBundle = createBundle(ragInput, ragTexts, ragFiles);
-        
         setSavedKnowledge([newBundle, ...savedKnowledge]);
         setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
         
-        if (ragFiles.length > 0) {
-          const serverName = uiLlmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
-          setAlertMessage(`파일이 성공적으로 ${serverName}에 업로드 되었습니다.\n이제 대화를 시작해 보세요!`);
-        }
+        const serverName = uiLlmType === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
+        setAlertMessage(`데이터가 성공적으로 ${serverName}에 업로드 되었습니다.\n(URL 스크랩 완료)`);
 
         setRagInput("");
         setRagFiles([]);
@@ -460,7 +445,7 @@ export default function Admin({chatbotType}) {
       } finally {
         setIsUploading(false);
       }
-    }, 800); 
+    }, 100); 
   };
 
   const handleToggleKnowledgeSelection = (id) => {
@@ -523,7 +508,7 @@ export default function Admin({chatbotType}) {
   const [newMcpName, setNewMcpName] = useState("");
   const [newMcpUrl, setNewMcpUrl] = useState("");
   const [newMcpApiKey, setNewMcpApiKey] = useState("");
-
+  const [newMcpParams, setNewMcpParams] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [codeTab, setCodeTab] = useState("vanilla");
 
@@ -533,7 +518,8 @@ export default function Admin({chatbotType}) {
   const [selectedMcpDetail, setSelectedMcpDetail] = useState(null);
 
   useEffect(() => {
-    loadSavedConfig(setApiKeys, setLayout, setAutoOff, setAutoOffSec);
+    // 🚀 수정됨: setMcpList 전달하여 저장된 MCP 설정 로드
+    loadSavedConfig(setApiKeys, setLayout, setAutoOff, setAutoOffSec, setMcpList);
   }, []);
 
   useEffect(() => {
@@ -689,10 +675,17 @@ export default function Admin({chatbotType}) {
   };
 
   const confirmAddMcp = () => {
-    if (!newMcpName.trim() || !newMcpUrl.trim() || !newMcpApiKey.trim()) {
-      setAlertMessage("API 이름, 엔드포인트 URL, API 키를 모두 입력해주세요.");
+    if (!newMcpName.trim() || !newMcpUrl.trim()) {
+      setAlertMessage("API 이름과 엔드포인트 URL을 모두 입력해주세요. (API 키는 선택)");
       return;
     }
+
+    const invalidParams = newMcpParams.filter(p => !p.key.trim());
+    if (invalidParams.length > 0) {
+      setAlertMessage("추가한 모든 파라미터의 '키(Key)'를 입력해주세요.");
+      return;
+    }
+
     const newMcp = {
       id: `custom_mcp_${Date.now()}`,
       name: newMcpName.trim(),
@@ -700,13 +693,21 @@ export default function Admin({chatbotType}) {
       type: "custom",
       active: true,
       apiKey: newMcpApiKey.trim(),
-      parameters: []
+      parameters: newMcpParams.map(p => ({
+        key: p.key.trim(),
+        type: p.type,
+        desc: p.desc.trim()
+      }))
     };
-    setMcpList([...mcpList, newMcp]);
+
+    const updatedMcpList = [...mcpList, newMcp];
+    syncMcpToStorage(updatedMcpList, setMcpList);
+    
     setIsMcpModalOpen(false);
     setNewMcpName("");
     setNewMcpUrl("");
     setNewMcpApiKey("");
+    setNewMcpParams([]);
   };
 
   const handleSaveClick = () => {
@@ -719,7 +720,7 @@ export default function Admin({chatbotType}) {
     saveConfiguration({
       apiKeys, selectedAgentId, uiCharacter, uiLlmType, uiRagType,
       autoAssistantId, promptMode, selectedTags, customTags, manualPrompt,
-      layout, autoOff, autoOffSec, digitalHumans, setApiKeys
+      layout, autoOff, autoOffSec, digitalHumans, mcpList, setApiKeys
     });
     
     setAlertMessage("성공적으로 적용되었습니다!"); 
@@ -1453,7 +1454,11 @@ export default function Admin({chatbotType}) {
                           <button 
                             className="btn-icon danger" 
                             title="엔드포인트 삭제" 
-                            onClick={() => setMcpList(mcpList.filter(m => m.id !== mcp.id))}
+                            onClick={() => {
+                              // 🚀 수정됨: 삭제 시 동기화 적용
+                              const updatedMcpList = mcpList.filter(m => m.id !== mcp.id);
+                              syncMcpToStorage(updatedMcpList, setMcpList);
+                            }}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="3 6 5 6 21 6"></polyline>
@@ -1465,7 +1470,9 @@ export default function Admin({chatbotType}) {
                             className="toggle-switch"
                             checked={mcp.active}
                             onChange={() => {
-                              setMcpList(mcpList.map(m => m.id === mcp.id ? { ...m, active: !m.active } : m));
+                              // 🚀 수정됨: 토글 시 동기화 적용
+                              const updatedMcpList = mcpList.map(m => m.id === mcp.id ? { ...m, active: !m.active } : m);
+                              syncMcpToStorage(updatedMcpList, setMcpList);
                             }}
                             title={mcp.active ? "비활성화" : "활성화"}
                           />
@@ -1756,10 +1763,10 @@ export default function Admin({chatbotType}) {
 
       {isMcpModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box" style={{ maxWidth: "500px" }}>
             <h2 className="modal-title">외부 API 추가</h2>
             <p className="modal-desc" style={{ marginBottom: "16px" }}>
-              연동할 커스텀 API 엔드포인트 정보를 입력하세요.
+              연동할 커스텀 API 엔드포인트와 파라미터 정보를 입력하세요.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "24px", textAlign: "left" }}>
               <div>
@@ -1769,7 +1776,7 @@ export default function Admin({chatbotType}) {
                   className="custom-input"
                   value={newMcpName}
                   onChange={(e) => setNewMcpName(e.target.value)}
-                  placeholder="예: 기상청 날씨 API"
+                  placeholder="예: 실시간 코인 시세"
                   autoFocus
                 />
               </div>
@@ -1780,28 +1787,98 @@ export default function Admin({chatbotType}) {
                   className="custom-input"
                   value={newMcpUrl}
                   onChange={(e) => setNewMcpUrl(e.target.value)}
-                  placeholder="https://apis.data.go.kr/..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmAddMcp();
-                  }}
+                  placeholder="https://api.coingecko.com/api/v3/simple/price"
                 />
               </div>
               <div>
-                <label style={{ fontSize: "12px", color: "#a0aec0", marginBottom: "4px", display: "block" }}>API 키</label>
+                <label style={{ fontSize: "12px", color: "#a0aec0", marginBottom: "4px", display: "block" }}>API 키 (선택사항)</label>
                 <input
                   type="text"
                   className="custom-input"
                   value={newMcpApiKey}
                   onChange={(e) => setNewMcpApiKey(e.target.value)}
                   placeholder="예: Bearer sk-..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmAddMcp();
-                  }}
                 />
               </div>
+
+              {/* 🚀 파라미터 동적 추가 영역 시작 */}
+              <div style={{ marginTop: '8px', padding: '12px', background: '#0b0d10', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <label style={{ fontSize: "12px", color: "#00c6ff", fontWeight: 600, margin: 0 }}>파라미터 설정</label>
+                  <button
+                    type="button"
+                    style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    onClick={() => setNewMcpParams([...newMcpParams, { key: '', type: 'string', desc: '' }])}
+                  >
+                    + 파라미터 추가
+                  </button>
+                </div>
+
+                {newMcpParams.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#718096', textAlign: 'center', padding: '8px 0' }}>
+                    추가된 파라미터가 없습니다.
+                  </div>
+                ) : (
+                  newMcpParams.map((param, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: index === newMcpParams.length - 1 ? 0 : '8px', alignItems: 'flex-start' }}>
+                      <input
+                        type="text"
+                        className="custom-input"
+                        style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
+                        placeholder="키 (예: symbol)"
+                        value={param.key}
+                        onChange={(e) => {
+                          const updated = [...newMcpParams];
+                          updated[index].key = e.target.value;
+                          setNewMcpParams(updated);
+                        }}
+                      />
+                      <select
+                        className="custom-select"
+                        style={{ width: '85px', padding: '6px', fontSize: '12px', height: 'auto', backgroundColor: '#1a202c' }}
+                        value={param.type}
+                        onChange={(e) => {
+                          const updated = [...newMcpParams];
+                          updated[index].type = e.target.value;
+                          setNewMcpParams(updated);
+                        }}
+                      >
+                        <option value="string">String</option>
+                        <option value="number">Number</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="custom-input"
+                        style={{ flex: 2, padding: '6px 10px', fontSize: '12px' }}
+                        placeholder="설명 (예: 코인 심볼 BTCUSDT, ETHUSDT)"
+                        value={param.desc}
+                        onChange={(e) => {
+                          const updated = [...newMcpParams];
+                          updated[index].desc = e.target.value;
+                          setNewMcpParams(updated);
+                        }}
+                      />
+                      <button
+                        className="btn-icon danger"
+                        style={{ padding: '6px' }}
+                        onClick={() => {
+                          setNewMcpParams(newMcpParams.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* 🚀 파라미터 영역 끝 */}
+
             </div>
             <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setIsMcpModalOpen(false)}>취소</button>
+              <button className="btn-outline" onClick={() => {
+                setIsMcpModalOpen(false);
+                setNewMcpParams([]); // 취소 시 초기화
+              }}>취소</button>
               <button className="btn-primary" onClick={confirmAddMcp}>추가하기</button>
             </div>
           </div>

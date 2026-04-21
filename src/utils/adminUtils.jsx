@@ -4,8 +4,53 @@ import {
   uploadFilesToGemini 
 } from "../services/ragService";
 
-// 1. 초기 렌더링 시 스토리지에서 설정 불러오기
-export const loadSavedConfig = (setApiKeys, setLayout, setAutoOff, setAutoOffSec) => {
+// 🚀 기본 제공 MCP 리스트
+export const DEFAULT_MCP_LIST = [
+  { 
+    id: "web_search", 
+    name: "웹 검색 (Web Search)", 
+    desc: "실시간 웹 검색 결과를 기반으로 최신 정보를 반영합니다.", 
+    type: "built-in", 
+    active: true,
+    apiKey: "",
+    parameters: [
+      { key: "query", type: "string", desc: "검색어" },
+      { key: "num_results", type: "number", desc: "가져올 결과 개수 (기본: 5)" }
+    ]
+  },
+  { 
+    id: "calculator", 
+    name: "수학 및 코드 실행기", 
+    desc: "복잡한 수식이나 코드를 실행하여 정확한 결과값을 도출합니다.", 
+    type: "built-in", 
+    active: false,
+    apiKey: "",
+    parameters: [
+      { key: "expression", type: "string", desc: "계산할 수학 수식 또는 코드" }
+    ]
+  },
+  { 
+    id: "custom_1", 
+    name: "기상청 날씨 API", 
+    desc: "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0", 
+    type: "custom", 
+    active: true,
+    apiKey: "sk-weather-gov-abc123def456", 
+    parameters: [
+      { key: "ServiceKey", type: "string", desc: "발급받은 공공데이터포털 인증키" },
+      { key: "pageNo", type: "number", desc: "페이지 번호 (기본값: 1)" },
+      { key: "numOfRows", type: "number", desc: "한 페이지 결과 수 (기본값: 10)" },
+      { key: "dataType", type: "string", desc: "응답자료형식 (XML / JSON)" },
+      { key: "base_date", type: "string", desc: "발표일자 (YYYYMMDD)" },
+      { key: "base_time", type: "string", desc: "발표시각 (HHMM)" },
+      { key: "nx", type: "number", desc: "예보지점 X 좌표" },
+      { key: "ny", type: "number", desc: "예보지점 Y 좌표" }
+    ]
+  }
+];
+
+// 1. 초기 렌더링 시 스토리지에서 설정 불러오기 (MCP 포함)
+export const loadSavedConfig = (setApiKeys, setLayout, setAutoOff, setAutoOffSec, setMcpList) => {
   const savedAdminConfig = localStorage.getItem("klever_admin_config");
   if (savedAdminConfig) {
     const parsedConfig = JSON.parse(savedAdminConfig);
@@ -14,6 +59,10 @@ export const loadSavedConfig = (setApiKeys, setLayout, setAutoOff, setAutoOffSec
     if (parsedConfig.layout) setLayout(parsedConfig.layout);
     if (parsedConfig.autoOff !== undefined) setAutoOff(parsedConfig.autoOff);
     if (parsedConfig.autoOffSec !== undefined) setAutoOffSec(parsedConfig.autoOffSec);
+    if (parsedConfig.mcpList) setMcpList(parsedConfig.mcpList);
+    else setMcpList(DEFAULT_MCP_LIST);
+  } else {
+    setMcpList(DEFAULT_MCP_LIST);
   }
 };
 
@@ -38,11 +87,24 @@ export const syncTagsToStorage = (apiKeys, selectedAgentId, newCustomTags, newSe
   localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
 };
 
-// 3. 설정 완료 및 저장
+// 🚀 3. MCP 리스트 변경 시 스토리지에 즉시 동기화
+export const syncMcpToStorage = (newMcpList, setMcpList) => {
+  setMcpList(newMcpList);
+  
+  const adminConfig = JSON.parse(localStorage.getItem("klever_admin_config") || "{}");
+  adminConfig.mcpList = newMcpList;
+  localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
+
+  const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
+  widgetConfig.mcpList = newMcpList;
+  localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
+};
+
+// 4. 설정 완료 및 저장 (MCP 데이터 포함)
 export const saveConfiguration = ({
   apiKeys, selectedAgentId, uiCharacter, uiLlmType, uiRagType,
   autoAssistantId, promptMode, selectedTags, customTags, manualPrompt,
-  layout, autoOff, autoOffSec, digitalHumans, setApiKeys
+  layout, autoOff, autoOffSec, digitalHumans, mcpList, setApiKeys
 }) => {
   const updatedApiKeys = apiKeys.map(agent => 
     agent.id === selectedAgentId ? { 
@@ -71,7 +133,8 @@ export const saveConfiguration = ({
     promptMode: savedAgent.promptMode, 
     promptTags: savedAgent.promptTags, 
     customTags: savedAgent.customTags,
-    promptManual: savedAgent.promptManual 
+    promptManual: savedAgent.promptManual,
+    mcpList: mcpList // 🚀 MCP 정보도 위젯으로 전달
   };
   localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
 
@@ -79,12 +142,13 @@ export const saveConfiguration = ({
     apiKeys: updatedApiKeys,
     layout: layout,
     autoOff: autoOff,
-    autoOffSec: autoOffSec
+    autoOffSec: autoOffSec,
+    mcpList: mcpList // 🚀 Admin 설정에도 유지
   };
   localStorage.setItem("klever_admin_config", JSON.stringify(adminConfig));
 };
 
-// 4. Vector Store ID 검증 및 연결
+// 5. Vector Store ID 검증 및 연결
 export const processVectorIdFinish = async (nativeRagId, uiLlmType, uiRagType, lastVerifiedVsId) => {
   const currentId = nativeRagId.trim();
   if (!currentId || uiLlmType !== "gpt" || uiRagType !== "native") return { skip: true };
@@ -102,7 +166,7 @@ export const processVectorIdFinish = async (nativeRagId, uiLlmType, uiRagType, l
   };
 };
 
-// 5. 서버로 RAG 파일 업로드 처리
+// 6. 서버로 RAG 파일 업로드 처리
 export const processKnowledgeUpload = async (ragFiles, uiLlmType, uiRagType, nativeRagId) => {
   if (ragFiles.length === 0) return null;
 
@@ -134,7 +198,7 @@ export const processKnowledgeUpload = async (ragFiles, uiLlmType, uiRagType, nat
   return null;
 };
 
-// 6. UI 리스트 렌더링용 데이터 묶음(Bundle) 생성
+// 7. UI 리스트 렌더링용 데이터 묶음(Bundle) 생성
 export const createBundle = (ragInput, ragTexts, ragFiles) => {
   const bundleItems = [];
   const today = new Date().toISOString().split('T')[0];
@@ -186,4 +250,109 @@ export const createBundle = (ragInput, ragTexts, ragFiles) => {
     date: today,
     items: bundleItems
   };
+};
+
+// ==========================================
+// 🚀 MCP (Tool Calling / Function Calling) 로직
+// ==========================================
+
+// 1. OpenAI 규격에 맞게 도구(Tools) 스키마 생성
+export const buildOpenAITools = (mcpList) => {
+  const activeMcps = mcpList?.filter(m => m.active) || [];
+  if (activeMcps.length === 0) return undefined;
+
+  return activeMcps.map(mcp => {
+    const properties = {};
+    const required = [];
+    mcp.parameters.forEach(p => {
+      properties[p.key] = {
+        type: p.type === 'number' ? 'number' : 'string',
+        description: p.desc
+      };
+      required.push(p.key);
+    });
+
+    return {
+      type: "function",
+      function: {
+        name: mcp.id.replace(/[^a-zA-Z0-9_]/g, '_'), // 특수문자 제거
+        description: mcp.desc || mcp.name,
+        parameters: {
+          type: "object",
+          properties: properties,
+          required: required
+        }
+      }
+    };
+  });
+};
+
+// 2. Gemini 규격에 맞게 도구(Tools) 스키마 생성
+export const buildGeminiTools = (mcpList) => {
+  const activeMcps = mcpList?.filter(m => m.active) || [];
+  if (activeMcps.length === 0) return undefined;
+
+  return [{
+    functionDeclarations: activeMcps.map(mcp => {
+      const properties = {};
+      const required = [];
+      mcp.parameters.forEach(p => {
+        properties[p.key] = {
+          type: p.type === 'number' ? 'NUMBER' : 'STRING',
+          description: p.desc
+        };
+        required.push(p.key);
+      });
+
+      return {
+        name: mcp.id.replace(/[^a-zA-Z0-9_]/g, '_'),
+        description: mcp.desc || mcp.name,
+        parameters: {
+          type: "OBJECT",
+          properties: properties,
+          required: required
+        }
+      };
+    })
+  }];
+};
+
+// 3. LLM이 도구 사용을 요청했을 때, 프론트엔드에서 실제 API를 실행해주는 함수
+export const executeMcpTool = async (toolName, args, mcpList) => {
+  const mcp = mcpList.find(m => m.id.replace(/[^a-zA-Z0-9_]/g, '_') === toolName);
+  if (!mcp) return JSON.stringify({ error: "해당 도구를 찾을 수 없습니다." });
+
+  console.log(`[🤖 MCP 도구 실행] ${mcp.name} 호출됨!`, args);
+
+  try {
+    if (mcp.type === "custom") {
+      // Custom URL 방식 (GET 방식으로 파라미터를 붙여서 보냄)
+      const url = new URL(mcp.desc);
+      Object.keys(args).forEach(key => url.searchParams.append(key, String(args[key])));
+
+      const headers = {};
+      if (mcp.apiKey) {
+        // 기상청 API 등은 보통 파라미터에 ServiceKey를 넣지만, 헤더 인증이 필요한 경우를 대비
+        headers["Authorization"] = mcp.apiKey.startsWith("Bearer ") ? mcp.apiKey : `Bearer ${mcp.apiKey}`;
+      }
+
+      const res = await fetch(url.toString(), { method: "GET", headers });
+      const data = await res.json();
+      return JSON.stringify(data);
+
+    } else if (mcp.id === "calculator") {
+      // 내장 계산기 도구
+      const result = new Function('return ' + args.expression)();
+      return JSON.stringify({ result });
+      
+    } else if (mcp.id === "web_search") {
+      // 내장 웹 검색 시뮬레이션 (실제 구현 시 구글 서치 API 등으로 대체)
+      return JSON.stringify({ result: `[웹 검색 결과] '${args.query}'에 대한 최신 정보입니다.` });
+    }
+
+    return JSON.stringify({ error: "지원하지 않는 도구 형식입니다." });
+  } catch (e) {
+    console.error("[MCP 실행 에러]", e);
+    return JSON.stringify({ error: e.message });
+  }
 };

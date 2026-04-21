@@ -291,27 +291,37 @@
 }
 
 /* 중앙 */
-.fw-widget.center {
+/* 기본 중앙 정렬 위치 */
+#fw-app-root .fw-widget.center {
   top: 50%;
   left: 50%;
-  /* 중앙 정렬을 위한 translate가 이미 있기 때문에 closed 상태 애니메이션을 다르게 처리해야 함 */
-  transform: translate(-50%, -50%) scale(1);
-  transform-origin: center center;
   bottom: auto;
   right: auto;
+  transform-origin: center center;
 }
 
-/* 🚀 중앙 정렬일 경우 닫혔을 때의 애니메이션 덮어쓰기 */
+/* 중앙 레이아웃 닫혀있을 때: 정중앙에서 살짝 아래로 내려가며 작아짐 */
 #fw-app-root .fw-widget.center.closed {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.8) translateY(20px);
+  opacity: 0;
+  /* -50%를 유지하면서 20px 아래로 살짝 내립니다 */
+  transform: translate(-50%, calc(-50% + 20px)) scale(0.8); 
+  visibility: hidden;
+  pointer-events: none;
 }
 
+/* 중앙 레이아웃 열려있을 때: 완벽한 정중앙(-50%, -50%) 위치 고정 */
+#fw-app-root .fw-widget.center.open {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1); 
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* 중앙 토글 버튼 위치 */
 .fw-toggle.center {
   bottom: 20px;
   right: 20px;
 }
-
 
 /* FloatingWidget.css */
 
@@ -407,4 +417,51 @@
     align-self: flex-start;
     background: rgba(255, 255, 255, 0.15);
     border-bottom-left-radius: 4px;
+}
+
+/* ========================================================= */
+/* 🚀 상단 헤더 버튼 (X 닫기, 햄버거 메뉴) 세련된 디자인으로 변경 */
+/* ========================================================= */
+#fw-app-root .fw-header-btn {
+    position: absolute;
+    top: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35); /* 반투명한 어두운 배경 */
+    border: 1px solid rgba(255, 255, 255, 0.15); /* 은은한 흰색 테두리 */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10006;
+    backdrop-filter: blur(10px); /* 유리 질감 블러 효과 */
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    padding: 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* 마우스 올렸을 때 효과 */
+#fw-app-root .fw-header-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.08); /* 살짝 커짐 */
+}
+
+/* 클릭할 때 효과 */
+#fw-app-root .fw-header-btn:active {
+    transform: scale(0.95);
+}
+
+/* 햄버거(채팅내역) 켜졌을 때 효과 */
+#fw-app-root .fw-header-btn.active {
+    background: rgba(59, 130, 246, 0.85); /* 파란색 활성화 */
+    border-color: rgba(96, 165, 250, 1);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+}
+
+#fw-app-root .fw-header-btn svg {
+    transition: transform 0.2s;
 }

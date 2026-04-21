@@ -3,6 +3,9 @@ import { Config, PixelStreaming } from "@epicgames-ps/lib-pixelstreamingfrontend
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import "../css/FloatingWidget.css";
 
+// 🚀 [핵심] MCP 도구를 사용하기 위한 함수들 임포트
+import { buildOpenAITools, buildGeminiTools, executeMcpTool } from "../utils/adminUtils";
+
 interface BasicChatbotProps {
   unrealurl: string;
   layout: string;
@@ -15,7 +18,7 @@ interface BasicChatbotProps {
   promptManual?: string;
 }
 
-// 🚀 채팅 내역 저장을 위한 타입 선언
+// 채팅 내역 저장을 위한 타입 선언
 interface ChatMessage {
   role: "user" | "ai";
   text: string;
@@ -45,6 +48,7 @@ export function BasicChatbot({
   promptManual = "" 
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isRendered, setIsRendered] = useState(false); 
   const [size, setSize] = useState({ width: 360, height: 300 }); 
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false); 
@@ -52,7 +56,6 @@ export function BasicChatbot({
   const [isMicOn, setIsMicOn] = useState(false);
   const [isResizing, setIsResizing] = useState(false); 
 
-  // 🚀 채팅 히스토리 상태 추가
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
@@ -61,7 +64,6 @@ export function BasicChatbot({
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
 
-  // 🚀 대화가 추가되면 자동으로 맨 아래로 스크롤
   useEffect(() => {
     if (isHistoryOpen && historyEndRef.current) {
       historyEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -143,23 +145,25 @@ export function BasicChatbot({
 
   const openWidget = () => {
     setIsLoading(true);
-    setIsOpen(true);
+    setIsRendered(true); 
+    setTimeout(() => setIsOpen(true), 10);
   };
 
   const closeWidget = () => {
     disconnectStreaming();
     setIsMicOn(false);
-    setIsOpen(false);
-    setIsHistoryOpen(false); // 창 닫을 때 히스토리 창도 초기화
+    setIsOpen(false); 
+    setIsHistoryOpen(false); 
+
+    setTimeout(() => setIsRendered(false), 400); 
   };
 
-  // 1. 픽셀스트리밍 연결
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss'; 
+          const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; 
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
@@ -196,7 +200,25 @@ export function BasicChatbot({
               "Type": "AvatarNum",
               "Value": String(avatarnum) 
             });
-            
+            psInstance.emitUIInteraction({
+              "Category": "VoiceSetting",
+              "Type": "Voice",
+              "Value": "FU_kangil" 
+            });
+            if(avatarnum == 2){
+                psInstance.emitUIInteraction({
+                        Category: "VoiceSetting",
+                        Type: "Voice",
+                        Value: "FU_moonjung"
+                      });
+              }
+              else{
+                psInstance.emitUIInteraction({
+                        Category: "VoiceSetting",
+                        Type: "Voice",
+                        Value: "FU_kangil"
+                      });
+              }
             psInstance.emitUIInteraction({
               "Category": "PageSetting",
               "Type": "WindowSize"
@@ -217,7 +239,6 @@ export function BasicChatbot({
     }
   }, [isOpen, unrealurl]); 
 
-  // 2. 아바타 실시간 변경
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
       psInstanceRef.current.emitUIInteraction({
@@ -225,10 +246,28 @@ export function BasicChatbot({
         Type: "AvatarNum",
         Value: String(avatarnum)
       });
+
+      if(avatarnum == 2){
+        psInstanceRef.current.emitUIInteraction({
+                Category: "VoiceSetting",
+                Type: "Voice",
+                Value: "FU_moonjung"
+              });
+      }
+      else{
+        psInstanceRef.current.emitUIInteraction({
+                Category: "VoiceSetting",
+                Type: "Voice",
+                Value: "FU_kangil"
+              });
+      }
+      
     }
   }, [avatarnum, isOpen]); 
 
-  // 3. 메시지 전송 로직
+  // ==========================================
+  // 🚀 메시지 전송 로직 (RAG + MCP 완벽 통합)
+  // ==========================================
   const sendMessage = async () => {
     const message = inputText.trim();
     if (!message || !psInstanceRef.current || isLoading || isThinking) return;
@@ -237,19 +276,18 @@ export function BasicChatbot({
       setIsThinking(true); 
       setInputText("");
 
-      // 🚀 사용자의 입력을 히스토리에 즉시 추가
       setChatHistory(prev => [...prev, { role: "user", text: message }]);
+
+      const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
+      const mcpList = widgetConfig.mcpList || [];
 
       let aiResponse = "";
       let finalSystemPrompt = ""; 
       
       if (promptMode === 'tag' && promptTags.length > 0) {
         const rules = promptTags.map(tag => {
-          if (tagInstructions[tag]) {
-            return tagInstructions[tag];
-          } else if (!tag.startsWith("custom_")) {
-            return tag;
-          }
+          if (tagInstructions[tag]) return tagInstructions[tag];
+          else if (!tag.startsWith("custom_")) return tag;
           return null;
         }).filter(Boolean);
 
@@ -260,8 +298,12 @@ export function BasicChatbot({
         finalSystemPrompt = promptManual;
       }
 
+      // ==========================================
+      // 🟢 OpenAI (GPT) 엔진 처리
+      // ==========================================
       if (llm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+        const openAITools = buildOpenAITools(mcpList); 
         
         if (assistantId) {
           let currentThreadId = threadId;
@@ -290,9 +332,19 @@ export function BasicChatbot({
           });
 
           const runBody: any = { assistant_id: assistantId };
+          const RAG_ENFORCEMENT_PROMPT = "CRITICAL INSTRUCTION: You MUST use the `file_search` tool to search your attached knowledge base files. Also, if the user asks for real-time or external data, use the provided custom functions (MCP tools).";
+
           if (finalSystemPrompt) {
-            runBody.instructions = finalSystemPrompt;
+            runBody.instructions = finalSystemPrompt + "\n\n" + RAG_ENFORCEMENT_PROMPT;
+          } else {
+            runBody.instructions = RAG_ENFORCEMENT_PROMPT;
           }
+
+          const toolsArray: any[] = [{ type: "file_search" }];
+          if (openAITools) {
+             toolsArray.push(...openAITools);
+          }
+          runBody.tools = toolsArray;
 
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
@@ -307,7 +359,8 @@ export function BasicChatbot({
           const runId = runData.id;
 
           let runStatus = runData.status;
-          while (runStatus === "queued" || runStatus === "in_progress") {
+          
+          while (runStatus === "queued" || runStatus === "in_progress" || runStatus === "requires_action") {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const checkRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`, {
               headers: {
@@ -317,6 +370,28 @@ export function BasicChatbot({
             });
             const checkData = await checkRes.json();
             runStatus = checkData.status;
+
+            if (runStatus === "requires_action") {
+              const toolCalls = checkData.required_action.submit_tool_outputs.tool_calls;
+              const toolOutputs = [];
+
+              for (const toolCall of toolCalls) {
+                const args = JSON.parse(toolCall.function.arguments);
+                const result = await executeMcpTool(toolCall.function.name, args, mcpList);
+                toolOutputs.push({ tool_call_id: toolCall.id, output: result });
+              }
+
+              await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}/submit_tool_outputs`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${gptApiKey}`,
+                  "OpenAI-Beta": "assistants=v2"
+                },
+                body: JSON.stringify({ tool_outputs: toolOutputs })
+              });
+              runStatus = "in_progress"; 
+            }
           }
 
           if (runStatus === "completed") {
@@ -327,7 +402,6 @@ export function BasicChatbot({
               }
             });
             const msgsData = await msgsRes.json();
-            
             const rawAnswer = msgsData.data[0]?.content[0]?.text?.value || "응답을 불러오지 못했습니다.";
             aiResponse = rawAnswer.replace(/【.*?】/g, ''); 
           } else {
@@ -335,48 +409,68 @@ export function BasicChatbot({
           }
 
         } else {
-          const messagesPayload = [];
+          // [일반 Chat Completions API 로직 - RAG 없을 때]
+          let messagesPayload = [];
           if (finalSystemPrompt) {
             messagesPayload.push({ role: "system", content: finalSystemPrompt });
           }
           messagesPayload.push({ role: "user", content: message });
 
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${gptApiKey}`
-            },
-            body: JSON.stringify({
-              model: "gpt-4o",
-              messages: messagesPayload
-            })
-          });
-          
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(`GPT Error: ${data.error?.message}`);
+          const fetchChat = async (msgs) => {
+            const bodyPayload: any = { model: "gpt-4o", messages: msgs };
+            if (openAITools) bodyPayload.tools = openAITools;
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${gptApiKey}`
+              },
+              body: JSON.stringify(bodyPayload)
+            });
+            return await response.json();
+          };
+
+          let data = await fetchChat(messagesPayload);
+          let responseMsg = data.choices[0]?.message;
+
+          if (responseMsg?.tool_calls) {
+             messagesPayload.push(responseMsg);
+             
+             for (const toolCall of responseMsg.tool_calls) {
+                const args = JSON.parse(toolCall.function.arguments);
+                const result = await executeMcpTool(toolCall.function.name, args, mcpList);
+                messagesPayload.push({ 
+                  role: "tool", 
+                  tool_call_id: toolCall.id, 
+                  name: toolCall.function.name, 
+                  content: result 
+                });
+             }
+             data = await fetchChat(messagesPayload);
+             aiResponse = data.choices[0]?.message?.content;
+          } else {
+             aiResponse = responseMsg?.content;
           }
-          
-          aiResponse = data.choices[0]?.message?.content || "GPT 응답을 생성하지 못했습니다.";
         }
 
+      // ==========================================
+      // 🟡 Google Gemini 엔진 처리 (🚀 완벽 픽스 버전)
+      // ==========================================
       } else {
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
 
           let parts: any[] = [{ text: message }];
+          const geminiTools = buildGeminiTools(mcpList); 
 
           if (assistantId) {
             try {
               const geminiFiles = JSON.parse(assistantId);
               geminiFiles.forEach((file: any) => {
                 parts.unshift({
-                  fileData: {
-                    mimeType: file.mimeType,
-                    fileUri: file.uri
-                  }
+                  fileData: { mimeType: file.mimeType, fileUri: file.uri }
                 });
               });
             } catch (e) {
@@ -385,39 +479,85 @@ export function BasicChatbot({
           }
 
           const geminiBody: any = {
-            contents: [{ parts: parts }]
+            contents: [{ role: "user", parts: parts }]
           };
+
           if (finalSystemPrompt) {
             geminiBody.systemInstruction = { parts: [{ text: finalSystemPrompt }] };
           }
-
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(geminiBody)
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(`Error ${response.status}`);
+          if (geminiTools) {
+            geminiBody.tools = geminiTools; 
           }
 
-          aiResponse = data.candidates[0].content.parts[0].text;
+          // 🚀 제미나이 전용 에러 캐칭 fetch 함수
+          const fetchGemini = async (bodyPayload) => {
+            const response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(bodyPayload)
+            });
+            const json = await response.json();
+            if (json.error) {
+              console.error("[제미나이 API 에러 로그]", json.error);
+              throw new Error(json.error.message);
+            }
+            return json;
+          };
+
+          let data = await fetchGemini(geminiBody);
+          const firstPart = data.candidates?.[0]?.content?.parts?.[0];
+
+          // 🚀 제미나이가 도구를 사용하겠다고 요청했을 때
+          if (firstPart && firstPart.functionCall) {
+            const funcCall = firstPart.functionCall;
+            const result = await executeMcpTool(funcCall.name, funcCall.args, mcpList);
+
+            // 1. 실행 결과를 안전한 JSON Object로 변환
+            let parsedResult;
+            try {
+              parsedResult = JSON.parse(result);
+            } catch(e) {
+              parsedResult = { raw_data: String(result) }; // 텍스트 반환 시 안전 포장
+            }
+
+            // 2. 모델의 이전 요청 기록을 다시 배열에 밀어넣음
+            const modelContent = data.candidates[0].content;
+            modelContent.role = "model"; // 제미나이 3.1 버그 대응 (가끔 role 누락됨)
+            geminiBody.contents.push(modelContent);
+
+            // 3. API 실행 결과를 제미나이가 원하는 까다로운 규격에 맞게 조립
+            const functionResponseData: any = {
+              name: funcCall.name,
+              response: parsedResult
+            };
+            if (funcCall.id) functionResponseData.id = funcCall.id; // 제미나이 3.1 규격 추가
+
+            // 4. 결과 제출
+            geminiBody.contents.push({
+              role: "user",
+              parts: [{ functionResponse: functionResponseData }]
+            });
+
+            // 5. 최종 답변 생성
+            const data2 = await fetchGemini(geminiBody);
+            aiResponse = data2.candidates?.[0]?.content?.parts?.[0]?.text || "응답을 생성하지 못했습니다.";
+          } else {
+            aiResponse = firstPart?.text || "응답 생성에 실패했습니다.";
+          }
 
         } catch (error) {
-          aiResponse = "연결 오류가 발생했습니다.";
+          console.error("Gemini 통신 중 에러 발생:", error);
+          aiResponse = "Gemini 연결 및 도구 실행 중 오류가 발생했습니다.";
         }
       }
 
       if (aiResponse) {
-        // 🚀 AI 응답을 히스토리에 즉시 추가
         setChatHistory(prev => [...prev, { role: "ai", text: aiResponse }]);
 
         const isRagUsed = !!assistantId;
         console.log(`[🤖 AI 응답 로그] 
   - 사용 모델: ${llm.toUpperCase()}
-  - RAG(문서/어시스턴트) 사용 유무: ${isRagUsed ? "O (사용됨)" : "X (사용안함)"}
+  - RAG(문서) 사용 유무: ${isRagUsed ? "O" : "X"}
   - 응답 내용: ${aiResponse}`);
 
         psInstanceRef.current.emitUIInteraction({
@@ -451,37 +591,18 @@ export function BasicChatbot({
     }
   };
 
-  // 상단 닫기 (X) 버튼
   const CloseButton = () => {
-    const isBottomLeft = layout === "bottom-left";
-    const style: React.CSSProperties = {
-      position: 'absolute',
-      top: '12px',
-      [isBottomLeft ? 'left' : 'right']: '12px',
-      zIndex: 10006,
-      cursor: 'pointer',
-      background: 'rgba(0,0,0,0.3)',
-      borderRadius: '50%',
-      width: '30px',
-      height: '30px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      border: 'none',
-      transition: 'all 0.2s ease',
-      backdropFilter: 'blur(4px)'
-    };
-
     return (
       <button
-        style={style}
+        className="fw-header-btn"
+        style={{ right: '14px' }}
         onClick={(e) => {
           e.stopPropagation();
           closeWidget();
         }}
-        className="fw-inner-close-btn"
+        title="위젯 닫기"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -489,41 +610,28 @@ export function BasicChatbot({
     );
   };
 
-  // 🚀 햄버거 메뉴 버튼 (X 버튼 바로 옆에 위치)
   const HistoryButton = () => {
-    const isBottomLeft = layout === "bottom-left";
-    const style: React.CSSProperties = {
-      position: 'absolute',
-      top: '12px',
-      // X버튼 기준 위치(12px) + 버튼너비(30px) + 간격(6px) = 48px
-      [isBottomLeft ? 'left' : 'right']: '48px', 
-      zIndex: 10006,
-      cursor: 'pointer',
-      background: isHistoryOpen ? 'rgba(59, 130, 246, 0.9)' : 'rgba(0,0,0,0.3)',
-      borderRadius: '50%',
-      width: '30px',
-      height: '30px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '4px',
-      border: 'none',
-      transition: 'all 0.2s ease',
-      backdropFilter: 'blur(4px)'
-    };
-
     return (
       <button
-        style={style}
+        className={`fw-header-btn ${isHistoryOpen ? 'active' : ''}`}
+        style={{ left: '14px' }} 
         onClick={(e) => {
           e.stopPropagation();
           setIsHistoryOpen(!isHistoryOpen);
         }}
+        title="대화 내역 보기"
       >
-        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
-        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
-        <div style={{ width: '14px', height: '2px', background: 'white', borderRadius: '1px' }} />
+        {isHistoryOpen ? (
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        )}
       </button>
     );
   };
@@ -540,7 +648,9 @@ export function BasicChatbot({
           style={{ 
             width: `${size.width}px`, 
             height: `${size.height}px`,
-            userSelect: isResizing ? 'none' : 'auto' 
+            userSelect: isResizing ? 'none' : 'auto',
+            display: isRendered ? 'flex' : 'none',
+            transition: isResizing ? 'none' : '' 
           }}
         >
           {isLoading && (
@@ -563,7 +673,6 @@ export function BasicChatbot({
             </>
           )}
 
-          {/* 🚀 채팅 내역 오버레이 UI */}
           {isOpen && isHistoryOpen && (
             <div className="fw-chat-history">
               {chatHistory.length === 0 ? (
@@ -575,7 +684,6 @@ export function BasicChatbot({
                   </div>
                 ))
               )}
-              {/* 스크롤 위치를 잡아주는 빈 div */}
               <div ref={historyEndRef} />
             </div>
           )}
@@ -600,7 +708,7 @@ export function BasicChatbot({
               onClick={toggleMic}
               disabled={isLoading || isThinking}
             >
-              <svg viewBox="0 0 24 24" fill="white" style={{ width: "20px" }}>
+              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: "20px" }}>
                 <path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3zm5-3a1 1 0 10-2 0 3 3 0 11-6 0 1 1 0 10-2 0 5 5 0 004 4.9V19H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.1A5 5 0 0017 11z" />
               </svg>
             </button>
@@ -613,7 +721,7 @@ export function BasicChatbot({
                    border: '2px solid rgba(255,255,255,0.3)', 
                    borderTop: '2px solid white', 
                    borderRadius: '50%', 
-                   animation: 'spin 1s linear infinite' 
+                   animation: 'fw-spin 1s linear infinite' 
                  }} />
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
@@ -625,13 +733,16 @@ export function BasicChatbot({
           </div>
         </div>
 
-        {!isOpen && (
-          <button type="button" className={`fw-toggle ${layout}`} onClick={openWidget}>
-            <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-            </svg>
-          </button>
-        )}
+        <button 
+          type="button" 
+          className={`fw-toggle ${layout} ${isOpen ? 'hidden' : ''}`} 
+          onClick={openWidget}
+          style={{ display: isRendered && isOpen ? 'none' : 'flex' }} 
+        >
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+          </svg>
+        </button>
       </div>
     </>
   );
