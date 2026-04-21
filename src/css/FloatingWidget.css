@@ -20,7 +20,9 @@
     margin-bottom: 10px;
 }
 
-/* 위젯 본체 - DigitalHuman의 다크 테마 적용 */
+/* ========================================================= */
+/* 🚀 위젯 본체 - 부드러운 애니메이션(Scale + Fade) 효과 추가 */
+/* ========================================================= */
 #fw-app-root .fw-widget {
     position: fixed;
     bottom: 20px; /* DigitalHuman 위치 */
@@ -33,9 +35,27 @@
     overflow: hidden;
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
     z-index: 9999;
+    
+    /* 🚀 자연스럽게 커지고 나타나는 애니메이션 속성 */
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.35s;
+    transform-origin: bottom right; /* 기본적으로 토글 버튼이 있는 우측 하단에서 튀어나오도록 설정 */
 }
 
-#fw-app-root .fw-widget.closed { display: none; }
+/* 닫혀있을 때: 투명해지고 크기가 80%로 작아지며 약간 아래로 이동 */
+#fw-app-root .fw-widget.closed { 
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+    visibility: hidden;
+    pointer-events: none; /* 클릭 방지 */
+}
+
+/* 열려있을 때: 선명해지고 원래 크기(100%)로 돌아옴 */
+#fw-app-root .fw-widget.open {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    visibility: visible;
+    pointer-events: auto;
+}
 
 /* 상단 닫기 버튼 */
 #fw-app-root .fw-close-btn {
@@ -104,6 +124,19 @@
     align-items: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     z-index: 10000;
+    
+    /* 🚀 트랜지션(애니메이션) 준비 */
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    border: 1px solid transparent; /* 기본 상태는 투명 테두리 */
+}
+
+/* 🚀 입력창을 클릭해서 입력 중일 때(Focus-within) 나타나는 효과 */
+#fw-app-root .fw-input-bar:focus-within {
+    background: #ffffff;
+    border-color: #3b82f6; /* 파란색 테두리 활성화 */
+    /* 파란색 은은한 빛(Glow) 효과 + 그림자 살짝 진하게 */
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 6px 16px rgba(0, 0, 0, 0.15); 
+    transform: translateY(-2px); /* 살짝 위로 떠오르는 느낌 */
 }
 
 #fw-app-root .fw-input {
@@ -130,9 +163,8 @@
 }
 #fw-app-root .send-btn:hover{
       background: #2563eb; /* 마우스 올렸을 때 조금 더 진하게 */
-
 }
-/* 요기 점 빠진거 채웠습니다! */
+
 #fw-app-root .send-btn:active {
   transform: scale(0.9); /* 클릭했을 때 살짝 작아지는 효과 */
 }
@@ -163,14 +195,21 @@
     align-items: center;
     width: 60px;
     height: 60px;
-    transition: transform .2s, background .2s !important;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s, opacity 0.3s ease !important;
     display: flex;
     position: fixed;
     bottom: 40px;
     right: 40px;
     box-shadow: 0 4px 12px #3b82f666 !important;
-
 }
+
+/* 🚀 위젯이 열렸을 때 토글 버튼이 부드럽게 사라지는 효과 (선택 사항) */
+#fw-app-root .fw-toggle.hidden {
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none;
+}
+
 /* 클릭 시 scale 효과만 주고 테두리/outline 없음 */
 #fw-app-root .fw-toggle:focus,
 #fw-app-root .fw-toggle:active {
@@ -192,8 +231,6 @@
     display: flex;
 }
 
-
-
 /* ================== layout override ================== */
 
 .fw-widget,
@@ -205,6 +242,7 @@
 .fw-widget.bottom-right {
   bottom: 20px;
   right: 20px;
+  transform-origin: bottom right; /* 🚀 레이아웃별로 애니메이션 시작점 변경 */
 }
 .fw-toggle.bottom-right {
   bottom: 20px;
@@ -216,6 +254,7 @@
   bottom: 20px;
   left: 20px;
   right: auto;
+  transform-origin: bottom left; /* 🚀 애니메이션 시작점 */
 }
 .fw-toggle.bottom-left {
   bottom: 20px;
@@ -228,6 +267,7 @@
   top: 20px;
   right: 20px;
   bottom: auto;
+  transform-origin: top right; /* 🚀 애니메이션 시작점 */
 }
 .fw-toggle.top-right {
   top: 20px;
@@ -241,6 +281,7 @@
   left: 20px;
   bottom: auto;
   right: auto;
+  transform-origin: top left; /* 🚀 애니메이션 시작점 */
 }
 .fw-toggle.top-left {
   top: 20px;
@@ -253,14 +294,24 @@
 .fw-widget.center {
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  /* 중앙 정렬을 위한 translate가 이미 있기 때문에 closed 상태 애니메이션을 다르게 처리해야 함 */
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: center center;
   bottom: auto;
   right: auto;
 }
+
+/* 🚀 중앙 정렬일 경우 닫혔을 때의 애니메이션 덮어쓰기 */
+#fw-app-root .fw-widget.center.closed {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8) translateY(20px);
+}
+
 .fw-toggle.center {
   bottom: 20px;
   right: 20px;
 }
+
 
 /* FloatingWidget.css */
 

@@ -223,7 +223,6 @@ export default function Admin({chatbotType}) {
   const [savedKnowledge, setSavedKnowledge] = useState([]);
   const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
 
-  // 🚀 새롭게 추가: LLM 엔진별 RAG 데이터를 임시 보관하는 캐시 상태
   const [ragCache, setRagCache] = useState({
     gpt: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
     gemini: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
@@ -276,6 +275,21 @@ export default function Admin({chatbotType}) {
     }
   ]);
 
+  // 🚀 Admin 페이지 한정: 3초 후 챗봇 강제 클릭 이벤트 발생
+  // 이 로직은 Admin 화면에서만 동작하며, 챗봇 컴포넌트 자체를 오염시키지 않습니다.
+  // 🚀 3초 후 챗봇 열기 버튼을 강제로 클릭하는 타이머 로직
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // 이미지에서 확인한 클래스명 '.fw-toggle'을 정확히 타겟팅해서 클릭합니다.
+      const toggleButton = document.querySelector(".fw-toggle");
+      if (toggleButton) {
+        toggleButton.click();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // 에이전트 전환 시
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
@@ -301,7 +315,6 @@ export default function Admin({chatbotType}) {
        setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
 
-       // 🚀 에이전트 전환 시 해당 에이전트의 데이터로 캐시 재구성
        setRagCache({
          gpt: { 
            nativeRagId: currentLlm === 'gpt' ? loadedAssistantId : "", 
@@ -324,17 +337,14 @@ export default function Admin({chatbotType}) {
     }
   }, [selectedAgentId]);
 
-  // 🚀 수정됨: 엔진(LLM)을 바꿀 때 데이터를 날리지 않고 서로 "스왑"하도록 개선
   const handleLlmChange = (e) => {
     const newLlm = e.target.value;
     if (newLlm !== uiLlmType) {
-      // 1. 기존에 작업하던 내용을 캐시에 백업
       setRagCache(prev => ({
         ...prev,
         [uiLlmType]: { nativeRagId, autoAssistantId, savedKnowledge }
       }));
 
-      // 2. 넘어갈 새 엔진의 데이터를 캐시에서 불러오기
       const nextCache = ragCache[newLlm] || { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] };
       setNativeRagId(nextCache.nativeRagId || "");
       setAutoAssistantId(nextCache.autoAssistantId || "");
@@ -342,7 +352,6 @@ export default function Admin({chatbotType}) {
       
       setUiLlmType(newLlm);
       
-      // 3. 화면 하단의 새 입력 폼(찌꺼기)만 초기화
       setSelectedKnowledgeIds([]);
       setRagInput("");
       setRagFiles([]);
@@ -350,7 +359,6 @@ export default function Admin({chatbotType}) {
     }
   };
 
-  // 🚀 수정됨: Assistant ID 검증 완료 후 불필요한 성공 알림 제거
   const handleVectorIdFinish = async () => {
     setIsUploading(true); 
     const result = await processVectorIdFinish(nativeRagId, uiLlmType, uiRagType, lastVerifiedVsId);
@@ -358,9 +366,7 @@ export default function Admin({chatbotType}) {
       if (result.success) {
         setAutoAssistantId(result.assistantId);
         setLastVerifiedVsId(result.currentId);
-        // 성공 시 알림 띄우지 않음 (조용하게 넘어감)
       } else {
-        // 실패 시 에러 원인 알림은 유지
         setAlertMessage(result.message);
       }
     }
@@ -1668,6 +1674,7 @@ export default function Admin({chatbotType}) {
         </div>
       </div>
 
+      <div id="chatbot-wrapper">
        {chatbotType === "sdk" ? (
         <DigitalHuman 
           apiKey={import.meta.env.VITE_KLEVER_API_KEY} 
@@ -1686,6 +1693,7 @@ export default function Admin({chatbotType}) {
           promptManual={savedAgent.promptManual || ""}
         />
       )}
+      </div>
 
       {isModalOpen && (
         <div className="modal-overlay">
