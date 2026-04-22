@@ -33,7 +33,7 @@ const tagInstructions: Record<string, string> = {
   "no_personal_info": "사용자의 개인정보를 요구하거나 저장하지 마세요.",
   "polite_tone": "항상 정중하고 예의 바른 존댓말로 답변하세요.",
   "require_citation": "사실 기반의 정보를 제공할 때는 가능한 한 출처나 근거를 함께 언급하세요.",
-  "empathy_first": "답변을 시작할 때 먼저 사용자의 감정이나 상황에 공감하는 문장을 한 줄 넣어주세요."
+  "empathy_first": "답변 시작 시 먼저 사용자의 감정이나 상황에 공감하는 문장을 한 줄 넣어주세요."
 };
 
 export function BasicChatbot({ 
@@ -104,24 +104,16 @@ export function BasicChatbot({
       position: 'absolute',
       [isLeft ? 'right' : 'left']: '2px',
       [isTop ? 'bottom' : 'top']: '2px',
-      cursor: isLeft
-        ? (isTop ? 'sw-resize' : 'nw-resize')
-        : (isTop ? 'se-resize' : 'nw-resize'),
+      cursor: isLeft ? (isTop ? 'sw-resize' : 'nw-resize') : (isTop ? 'se-resize' : 'nw-resize'),
       zIndex: 10005,
       padding: '4px'
     };
 
     let pathData = "M16,4 L8,4 Q4,4 4,8 L4,16";
-
-    if (layout === "bottom-right" || layout === "center") {
-      pathData = "M16,4 L8,4 Q4,4 4,8 L4,16";
-    } else if (layout === "bottom-left") {
-      pathData = "M8,4 L16,4 Q20,4 20,8 L20,16";
-    } else if (layout === "top-right") {
-      pathData = "M16,20 L8,20 Q4,20 4,16 L4,8";
-    } else if (layout === "top-left") {
-      pathData = "M8,20 L16,20 Q20,20 20,16 L20,8";
-    }
+    if (layout === "bottom-right" || layout === "center") pathData = "M16,4 L8,4 Q4,4 4,8 L4,16";
+    else if (layout === "bottom-left") pathData = "M8,4 L16,4 Q20,4 20,8 L20,16";
+    else if (layout === "top-right") pathData = "M16,20 L8,20 Q4,20 4,16 L4,8";
+    else if (layout === "top-left") pathData = "M8,20 L16,20 Q20,20 20,16 L20,8";
 
     return (
       <div className="fw-resize-handle" style={style} onMouseDown={handleResize}>
@@ -137,9 +129,7 @@ export function BasicChatbot({
       psInstanceRef.current.disconnect();
       psInstanceRef.current = null;
     }
-    if (videoWrapperRef.current) {
-      videoWrapperRef.current.innerHTML = "";
-    }
+    if (videoWrapperRef.current) videoWrapperRef.current.innerHTML = "";
     setIsLoading(false);
   };
 
@@ -154,7 +144,6 @@ export function BasicChatbot({
     setIsMicOn(false);
     setIsOpen(false); 
     setIsHistoryOpen(false); 
-
     setTimeout(() => setIsRendered(false), 400); 
   };
 
@@ -169,12 +158,7 @@ export function BasicChatbot({
           const ssUrl = `${protocol}://${data.signallingServer}`;
           const config = new Config({
             initialSettings: {
-              ss: ssUrl,
-              AutoPlayVideo: true,
-              AutoConnect: true,
-              HoveringMouse: true,
-              KeyboardInput: false,
-              MouseInput: false,
+              ss: ssUrl, AutoPlayVideo: true, AutoConnect: true, HoveringMouse: true, KeyboardInput: false, MouseInput: false,
             },
           });
 
@@ -187,42 +171,10 @@ export function BasicChatbot({
               videoWrapperRef.current.appendChild(psInstance.videoElementParent);
               setIsLoading(false);
             }
-
-            psInstance.emitUIInteraction({
-              "Category": "SystemSetting",
-              "Type": "WebConnected",
-              "Width": "1280",
-              "Height": "720"
-            });
-            
-            psInstance.emitUIInteraction({
-              "Category": "AvatarSetting",
-              "Type": "AvatarNum",
-              "Value": String(avatarnum) 
-            });
-            psInstance.emitUIInteraction({
-              "Category": "VoiceSetting",
-              "Type": "Voice",
-              "Value": "FU_kangil" 
-            });
-            if(avatarnum == 2){
-                psInstance.emitUIInteraction({
-                        Category: "VoiceSetting",
-                        Type: "Voice",
-                        Value: "FU_moonjung"
-                      });
-              }
-              else{
-                psInstance.emitUIInteraction({
-                        Category: "VoiceSetting",
-                        Type: "Voice",
-                        Value: "FU_kangil"
-                      });
-              }
-            psInstance.emitUIInteraction({
-              "Category": "PageSetting",
-              "Type": "WindowSize"
-            });
+            psInstance.emitUIInteraction({ "Category": "SystemSetting", "Type": "WebConnected", "Width": "1280", "Height": "720" });
+            psInstance.emitUIInteraction({ "Category": "AvatarSetting", "Type": "AvatarNum", "Value": String(avatarnum) });
+            psInstance.emitUIInteraction({ "Category": "VoiceSetting", "Type": "Voice", "Value": avatarnum == 2 ? "FU_moonjung" : "FU_kangil" });
+            psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
           });
 
         } catch (err) {
@@ -230,43 +182,20 @@ export function BasicChatbot({
           setIsLoading(false);
         }
       };
-
       connect();
-
-      return () => {
-        disconnectStreaming();
-      };
+      return () => disconnectStreaming();
     }
   }, [isOpen, unrealurl]); 
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen) {
-      psInstanceRef.current.emitUIInteraction({
-        Category: "AvatarSetting",
-        Type: "AvatarNum",
-        Value: String(avatarnum)
-      });
-
-      if(avatarnum == 2){
-        psInstanceRef.current.emitUIInteraction({
-                Category: "VoiceSetting",
-                Type: "Voice",
-                Value: "FU_moonjung"
-              });
-      }
-      else{
-        psInstanceRef.current.emitUIInteraction({
-                Category: "VoiceSetting",
-                Type: "Voice",
-                Value: "FU_kangil"
-              });
-      }
-      
+      psInstanceRef.current.emitUIInteraction({ Category: "AvatarSetting", Type: "AvatarNum", Value: String(avatarnum) });
+      psInstanceRef.current.emitUIInteraction({ Category: "VoiceSetting", Type: "Voice", Value: avatarnum == 2 ? "FU_moonjung" : "FU_kangil" });
     }
   }, [avatarnum, isOpen]); 
 
   // ==========================================
-  // 🚀 메시지 전송 로직 (RAG + MCP 완벽 통합)
+  // 🚀 메시지 전송 로직
   // ==========================================
   const sendMessage = async () => {
     const message = inputText.trim();
@@ -275,28 +204,46 @@ export function BasicChatbot({
     try {
       setIsThinking(true); 
       setInputText("");
-
       setChatHistory(prev => [...prev, { role: "user", text: message }]);
 
       const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
       const mcpList = widgetConfig.mcpList || [];
+      const savedCustomTags = widgetConfig.customTags || []; 
 
       let aiResponse = "";
+      
+      const activePromptMode = promptMode || widgetConfig.promptMode || "tag";
+      const activePromptTags = (promptTags && promptTags.length > 0) ? promptTags : (widgetConfig.promptTags || []);
+      const activePromptManual = promptManual || widgetConfig.promptManual || "";
+
       let finalSystemPrompt = ""; 
       
-      if (promptMode === 'tag' && promptTags.length > 0) {
-        const rules = promptTags.map(tag => {
+      if (activePromptMode === 'tag' && activePromptTags.length > 0) {
+        const rules = activePromptTags.map((tag: string) => {
           if (tagInstructions[tag]) return tagInstructions[tag];
-          else if (!tag.startsWith("custom_")) return tag;
-          return null;
+          else if (tag.startsWith("custom_")) {
+            const customMatch = savedCustomTags.find((t: any) => t.id === tag);
+            return customMatch ? customMatch.label : null;
+          } 
+          else return tag; 
         }).filter(Boolean);
 
         if (rules.length > 0) {
-          finalSystemPrompt = rules.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
+          finalSystemPrompt = rules.map((rule: string, index: number) => `${index + 1}. ${rule}`).join("\n");
         }
-      } else if (promptMode === 'manual' && promptManual.trim()) {
-        finalSystemPrompt = promptManual;
+      } else if (activePromptMode === 'manual' && activePromptManual.trim()) {
+        finalSystemPrompt = activePromptManual.trim();
       }
+
+      console.log("🛠️ [프롬프트 셋팅 확인] 적용된 페르소나 및 규칙:\n", finalSystemPrompt || "설정된 규칙 없음");
+
+      const ENFORCED_USER_MESSAGE = finalSystemPrompt 
+        ? `${message}\n\n================\n[System Directive for AI: 반드시 아래의 페르소나 및 규칙을 엄격하게 적용하여 답변을 생성할 것.]\n${finalSystemPrompt}`
+        : message;
+
+      const TOOL_REMINDER_MESSAGE = finalSystemPrompt 
+        ? `[System Reminder: 방금 제공된 검색 결과나 도구 데이터를 바탕으로 답변하되, 반드시 처음에 지시받은 페르소나와 규칙(존댓말 등)을 유지하여 자연스럽게 답변하세요.]`
+        : "";
 
       // ==========================================
       // 🟢 OpenAI (GPT) 엔진 처리
@@ -310,11 +257,7 @@ export function BasicChatbot({
           if (!currentThreadId) {
             const threadRes = await fetch("https://api.openai.com/v1/threads", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${gptApiKey}`,
-                "OpenAI-Beta": "assistants=v2"
-              }
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" }
             });
             const threadData = await threadRes.json();
             currentThreadId = threadData.id;
@@ -323,50 +266,33 @@ export function BasicChatbot({
 
           await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${gptApiKey}`,
-              "OpenAI-Beta": "assistants=v2"
-            },
-            body: JSON.stringify({ role: "user", content: message })
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" },
+            body: JSON.stringify({ role: "user", content: ENFORCED_USER_MESSAGE })
           });
 
           const runBody: any = { assistant_id: assistantId };
-          const RAG_ENFORCEMENT_PROMPT = "CRITICAL INSTRUCTION: You MUST use the `file_search` tool to search your attached knowledge base files. Also, if the user asks for real-time or external data, use the provided custom functions (MCP tools).";
-
+          
           if (finalSystemPrompt) {
-            runBody.instructions = finalSystemPrompt + "\n\n" + RAG_ENFORCEMENT_PROMPT;
-          } else {
-            runBody.instructions = RAG_ENFORCEMENT_PROMPT;
+            runBody.additional_instructions = "Follow the System Directive embedded in the user's message strictly.";
           }
 
           const toolsArray: any[] = [{ type: "file_search" }];
-          if (openAITools) {
-             toolsArray.push(...openAITools);
-          }
+          if (openAITools) toolsArray.push(...openAITools);
           runBody.tools = toolsArray;
 
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${gptApiKey}`,
-              "OpenAI-Beta": "assistants=v2"
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" },
             body: JSON.stringify(runBody)
           });
           const runData = await runRes.json();
           const runId = runData.id;
-
           let runStatus = runData.status;
           
           while (runStatus === "queued" || runStatus === "in_progress" || runStatus === "requires_action") {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const checkRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`, {
-              headers: {
-                "Authorization": `Bearer ${gptApiKey}`,
-                "OpenAI-Beta": "assistants=v2"
-              }
+              headers: { "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" }
             });
             const checkData = await checkRes.json();
             runStatus = checkData.status;
@@ -378,16 +304,12 @@ export function BasicChatbot({
               for (const toolCall of toolCalls) {
                 const args = JSON.parse(toolCall.function.arguments);
                 const result = await executeMcpTool(toolCall.function.name, args, mcpList);
-                toolOutputs.push({ tool_call_id: toolCall.id, output: result });
+                toolOutputs.push({ tool_call_id: toolCall.id, output: String(result) });
               }
 
               await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}/submit_tool_outputs`, {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${gptApiKey}`,
-                  "OpenAI-Beta": "assistants=v2"
-                },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" },
                 body: JSON.stringify({ tool_outputs: toolOutputs })
               });
               runStatus = "in_progress"; 
@@ -396,36 +318,29 @@ export function BasicChatbot({
 
           if (runStatus === "completed") {
             const msgsRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
-              headers: {
-                "Authorization": `Bearer ${gptApiKey}`,
-                "OpenAI-Beta": "assistants=v2"
-              }
+              headers: { "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" }
             });
             const msgsData = await msgsRes.json();
-            const rawAnswer = msgsData.data[0]?.content[0]?.text?.value || "응답을 불러오지 못했습니다.";
-            aiResponse = rawAnswer.replace(/【.*?】/g, ''); 
+            const rawAnswer = msgsData.data?.[0]?.content?.[0]?.text?.value;
+            aiResponse = rawAnswer ? rawAnswer.replace(/【.*?】/g, '') : "답변을 불러오지 못했습니다.";
           } else {
             aiResponse = "답변 생성 중 오류가 발생했습니다.";
           }
 
         } else {
-          // [일반 Chat Completions API 로직 - RAG 없을 때]
-          let messagesPayload = [];
+          let messagesPayload: any[] = [];
           if (finalSystemPrompt) {
             messagesPayload.push({ role: "system", content: finalSystemPrompt });
           }
-          messagesPayload.push({ role: "user", content: message });
+          messagesPayload.push({ role: "user", content: ENFORCED_USER_MESSAGE });
 
-          const fetchChat = async (msgs) => {
+          const fetchChat = async (msgs: any) => {
             const bodyPayload: any = { model: "gpt-4o", messages: msgs };
             if (openAITools) bodyPayload.tools = openAITools;
 
             const response = await fetch("https://api.openai.com/v1/chat/completions", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${gptApiKey}`
-              },
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}` },
               body: JSON.stringify(bodyPayload)
             });
             return await response.json();
@@ -436,7 +351,6 @@ export function BasicChatbot({
 
           if (responseMsg?.tool_calls) {
              messagesPayload.push(responseMsg);
-             
              for (const toolCall of responseMsg.tool_calls) {
                 const args = JSON.parse(toolCall.function.arguments);
                 const result = await executeMcpTool(toolCall.function.name, args, mcpList);
@@ -444,101 +358,85 @@ export function BasicChatbot({
                   role: "tool", 
                   tool_call_id: toolCall.id, 
                   name: toolCall.function.name, 
-                  content: result 
+                  content: String(result) 
                 });
              }
+             
+             if (TOOL_REMINDER_MESSAGE) {
+               messagesPayload.push({ role: "user", content: TOOL_REMINDER_MESSAGE });
+             }
+
              data = await fetchChat(messagesPayload);
-             aiResponse = data.choices[0]?.message?.content;
+             aiResponse = data.choices[0]?.message?.content || "응답을 생성하지 못했습니다.";
           } else {
-             aiResponse = responseMsg?.content;
+             aiResponse = responseMsg?.content || "응답을 생성하지 못했습니다.";
           }
         }
 
       // ==========================================
-      // 🟡 Google Gemini 엔진 처리 (🚀 완벽 픽스 버전)
+      // 🟡 Google Gemini 엔진 처리
       // ==========================================
       } else {
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
 
-          let parts: any[] = [{ text: message }];
+          let parts: any[] = [{ text: ENFORCED_USER_MESSAGE }];
           const geminiTools = buildGeminiTools(mcpList); 
 
           if (assistantId) {
             try {
               const geminiFiles = JSON.parse(assistantId);
               geminiFiles.forEach((file: any) => {
-                parts.unshift({
-                  fileData: { mimeType: file.mimeType, fileUri: file.uri }
-                });
+                parts.unshift({ fileData: { mimeType: file.mimeType, fileUri: file.uri } });
               });
             } catch (e) {
               console.log("Gemini 파일 파싱 오류");
             }
           }
 
-          const geminiBody: any = {
-            contents: [{ role: "user", parts: parts }]
-          };
-
+          const geminiBody: any = { contents: [{ role: "user", parts: parts }] };
           if (finalSystemPrompt) {
             geminiBody.systemInstruction = { parts: [{ text: finalSystemPrompt }] };
           }
-          if (geminiTools) {
-            geminiBody.tools = geminiTools; 
-          }
+          if (geminiTools) geminiBody.tools = geminiTools; 
 
-          // 🚀 제미나이 전용 에러 캐칭 fetch 함수
-          const fetchGemini = async (bodyPayload) => {
+          const fetchGemini = async (bodyPayload: any) => {
             const response = await fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(bodyPayload)
             });
             const json = await response.json();
-            if (json.error) {
-              console.error("[제미나이 API 에러 로그]", json.error);
-              throw new Error(json.error.message);
-            }
+            if (json.error) throw new Error(json.error.message);
             return json;
           };
 
           let data = await fetchGemini(geminiBody);
           const firstPart = data.candidates?.[0]?.content?.parts?.[0];
 
-          // 🚀 제미나이가 도구를 사용하겠다고 요청했을 때
           if (firstPart && firstPart.functionCall) {
             const funcCall = firstPart.functionCall;
             const result = await executeMcpTool(funcCall.name, funcCall.args, mcpList);
 
-            // 1. 실행 결과를 안전한 JSON Object로 변환
             let parsedResult;
-            try {
-              parsedResult = JSON.parse(result);
-            } catch(e) {
-              parsedResult = { raw_data: String(result) }; // 텍스트 반환 시 안전 포장
-            }
+            try { parsedResult = JSON.parse(result); } 
+            catch(e) { parsedResult = { raw_data: String(result) }; }
 
-            // 2. 모델의 이전 요청 기록을 다시 배열에 밀어넣음
             const modelContent = data.candidates[0].content;
-            modelContent.role = "model"; // 제미나이 3.1 버그 대응 (가끔 role 누락됨)
+            modelContent.role = "model"; 
             geminiBody.contents.push(modelContent);
 
-            // 3. API 실행 결과를 제미나이가 원하는 까다로운 규격에 맞게 조립
-            const functionResponseData: any = {
-              name: funcCall.name,
-              response: parsedResult
-            };
-            if (funcCall.id) functionResponseData.id = funcCall.id; // 제미나이 3.1 규격 추가
+            const functionResponseData: any = { name: funcCall.name, response: parsedResult };
+            if (funcCall.id) functionResponseData.id = funcCall.id; 
 
-            // 4. 결과 제출
-            geminiBody.contents.push({
-              role: "user",
-              parts: [{ functionResponse: functionResponseData }]
-            });
+            const userParts: any[] = [{ functionResponse: functionResponseData }];
+            if (TOOL_REMINDER_MESSAGE) {
+              userParts.push({ text: TOOL_REMINDER_MESSAGE });
+            }
 
-            // 5. 최종 답변 생성
+            geminiBody.contents.push({ role: "user", parts: userParts });
+
             const data2 = await fetchGemini(geminiBody);
             aiResponse = data2.candidates?.[0]?.content?.parts?.[0]?.text || "응답을 생성하지 못했습니다.";
           } else {
@@ -578,80 +476,59 @@ export function BasicChatbot({
     if (e.key === "Enter") sendMessage();
   };
 
-  const toggleMic = () => {
-    setIsMicOn((v) => !v);
-  };
+  const toggleMic = () => setIsMicOn((v) => !v);
 
   const handleInputFocus = () => {
     if (psInstanceRef.current) {
-      psInstanceRef.current.emitUIInteraction({
-        Category: "Chat",
-        Type: "Typing"
-      });
+      psInstanceRef.current.emitUIInteraction({ Category: "Chat", Type: "Typing" });
     }
   };
 
-  const CloseButton = () => {
-    return (
-      <button
-        className="fw-header-btn"
-        style={{ right: '14px' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          closeWidget();
-        }}
-        title="위젯 닫기"
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    );
-  };
+  // 🚨 [수정된 부분] X 버튼 로직
+  const CloseButton = () => (
+    <button 
+      className="fw-header-btn" 
+      style={{ right: '14px' }} 
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        if (isHistoryOpen) {
+          setIsHistoryOpen(false); // 창이 열려있으면 내역 창만 닫기
+        } else {
+          closeWidget(); // 안 열려있으면 위젯 전체 끄기
+        }
+      }} 
+      title={isHistoryOpen ? "대화 내역 닫기" : "위젯 닫기"}
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  );
 
-  const HistoryButton = () => {
-    return (
-      <button
-        className={`fw-header-btn ${isHistoryOpen ? 'active' : ''}`}
-        style={{ left: '14px' }} 
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsHistoryOpen(!isHistoryOpen);
-        }}
-        title="대화 내역 보기"
-      >
-        {isHistoryOpen ? (
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        )}
-      </button>
-    );
-  };
+  const HistoryButton = () => (
+    <button className={`fw-header-btn ${isHistoryOpen ? 'active' : ''}`} style={{ left: '14px' }} onClick={(e) => { e.stopPropagation(); setIsHistoryOpen(!isHistoryOpen); }} title="대화 내역 보기">
+      {isHistoryOpen ? (
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      )}
+    </button>
+  );
 
   return (
     <>
       <div id="fw-app-root">
-        
-        {isResizing && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, cursor: 'pointer' }} />
-        )}
+        {isResizing && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, cursor: 'pointer' }} />}
 
         <div className={`fw-widget ${layout} ${isOpen ? "open" : "closed"}`}
-          style={{ 
-            width: `${size.width}px`, 
-            height: `${size.height}px`,
-            userSelect: isResizing ? 'none' : 'auto',
-            display: isRendered ? 'flex' : 'none',
-            transition: isResizing ? 'none' : '' 
-          }}
+          style={{ width: `${size.width}px`, height: `${size.height}px`, userSelect: isResizing ? 'none' : 'auto', display: isRendered ? 'flex' : 'none', transition: isResizing ? 'none' : '' }}
         >
           {isLoading && (
             <div className="fw-loading-overlay">
@@ -660,18 +537,9 @@ export function BasicChatbot({
             </div>
           )}
 
-          <div 
-            ref={videoWrapperRef} 
-            className="fw-video-wrapper" 
-            style={{ pointerEvents: isResizing ? 'none' : 'auto' }}
-          />
+          <div ref={videoWrapperRef} className="fw-video-wrapper" style={{ pointerEvents: isResizing ? 'none' : 'auto' }} />
           
-          {isOpen && (
-            <>
-              <CloseButton />
-              <HistoryButton />
-            </>
-          )}
+          {isOpen && <><CloseButton /><HistoryButton /></>}
 
           {isOpen && isHistoryOpen && (
             <div className="fw-chat-history">
@@ -679,9 +547,7 @@ export function BasicChatbot({
                 <div className="fw-chat-empty">아직 대화 내역이 없습니다.</div>
               ) : (
                 chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`fw-chat-bubble ${msg.role}`}>
-                    {msg.text}
-                  </div>
+                  <div key={idx} className={`fw-chat-bubble ${msg.role}`}>{msg.text}</div>
                 ))
               )}
               <div ref={historyEndRef} />
@@ -691,23 +557,9 @@ export function BasicChatbot({
           <ResizeHandle />
           
           <div className="fw-input-bar">
-            <input
-              type="text"
-              className="fw-input"
-              value={inputText}
-              onFocus={handleInputFocus}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyEvent}
-              placeholder={isThinking ? "답변을 생성하고 있습니다..." : "메시지 입력..."}
-              disabled={isLoading || isThinking}
-            />
+            <input type="text" className="fw-input" value={inputText} onFocus={handleInputFocus} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleKeyEvent} placeholder={isThinking ? "답변을 생성하고 있습니다..." : "메시지 입력..."} disabled={isLoading || isThinking} />
 
-            <button
-              type="button"
-              className={`mic-btn ${isMicOn ? "active" : ""}`}
-              onClick={toggleMic}
-              disabled={isLoading || isThinking}
-            >
+            <button type="button" className={`mic-btn ${isMicOn ? "active" : ""}`} onClick={toggleMic} disabled={isLoading || isThinking}>
               <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: "20px" }}>
                 <path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3zm5-3a1 1 0 10-2 0 3 3 0 11-6 0 1 1 0 10-2 0 5 5 0 004 4.9V19H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.1A5 5 0 0017 11z" />
               </svg>
@@ -715,14 +567,7 @@ export function BasicChatbot({
 
             <button onClick={sendMessage} className="send-btn" disabled={isLoading || isThinking || !inputText.trim()}>
               {isThinking ? (
-                 <div style={{ 
-                   width: '18px', 
-                   height: '18px', 
-                   border: '2px solid rgba(255,255,255,0.3)', 
-                   borderTop: '2px solid white', 
-                   borderRadius: '50%', 
-                   animation: 'fw-spin 1s linear infinite' 
-                 }} />
+                 <div style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'fw-spin 1s linear infinite' }} />
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                   <line x1="12" y1="19" x2="12" y2="5"></line>
@@ -733,12 +578,7 @@ export function BasicChatbot({
           </div>
         </div>
 
-        <button 
-          type="button" 
-          className={`fw-toggle ${layout} ${isOpen ? 'hidden' : ''}`} 
-          onClick={openWidget}
-          style={{ display: isRendered && isOpen ? 'none' : 'flex' }} 
-        >
+        <button type="button" className={`fw-toggle ${layout} ${isOpen ? 'hidden' : ''}`} onClick={openWidget} style={{ display: isRendered && isOpen ? 'none' : 'flex' }} >
           <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
             <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
           </svg>

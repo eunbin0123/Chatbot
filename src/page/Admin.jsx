@@ -216,8 +216,10 @@ export default function Admin({chatbotType}) {
   });
 
   const fileInputRef = useRef(null);
+  
+  // 🚨 [새로 추가된 핵심 방어 코드] 이전 선택된 에이전트 ID를 기억하여 UI 강제 초기화 방지
+  const prevAgentIdRef = useRef(null);
 
-  // 🚀 MCP 리스트 상태 초기화 (useEffect에서 로드됨)
   const [mcpList, setMcpList] = useState([]);
 
   useEffect(() => {
@@ -231,7 +233,7 @@ export default function Admin({chatbotType}) {
     return () => clearTimeout(timer);
   }, []);
 
-  // 🚨 핵심 수정 부분: 의존성 배열에 apiKeys 추가
+  // 🚨 에이전트가 진짜로 변경되었을 때만 UI와 RAG 캐시를 비우도록 수정
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
     if (agent) {
@@ -256,27 +258,25 @@ export default function Admin({chatbotType}) {
        setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
 
-       setRagCache({
-         gpt: { 
-           nativeRagId: currentLlm === 'gpt' ? loadedAssistantId : "", 
-           autoAssistantId: currentLlm === 'gpt' ? loadedAssistantId : "", 
-           savedKnowledge: [] 
-         },
-         gemini: { 
-           nativeRagId: currentLlm === 'gemini' ? loadedAssistantId : "", 
-           autoAssistantId: currentLlm === 'gemini' ? loadedAssistantId : "", 
-           savedKnowledge: [] 
-         },
-         llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] }
-       });
+       // 💡 [핵심 방어 로직] 에이전트가 교체된 경우에만 RAG 폼을 비움 (저장 버튼 누를 땐 안 비움)
+       const isAgentSwitch = prevAgentIdRef.current !== selectedAgentId;
+       prevAgentIdRef.current = selectedAgentId;
 
-       setSavedKnowledge([]);
-       setSelectedKnowledgeIds([]);
-       setRagInput("");
-       setRagFiles([]);
-       setRagTexts([]);
+       if (isAgentSwitch) {
+         setRagCache({
+           gpt: { nativeRagId: currentLlm === 'gpt' ? loadedAssistantId : "", autoAssistantId: currentLlm === 'gpt' ? loadedAssistantId : "", savedKnowledge: [] },
+           gemini: { nativeRagId: currentLlm === 'gemini' ? loadedAssistantId : "", autoAssistantId: currentLlm === 'gemini' ? loadedAssistantId : "", savedKnowledge: [] },
+           llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] }
+         });
+
+         setSavedKnowledge([]);
+         setSelectedKnowledgeIds([]);
+         setRagInput("");
+         setRagFiles([]);
+         setRagTexts([]);
+       }
     }
-  }, [selectedAgentId, apiKeys]); // 👈 여기에 apiKeys가 추가됨
+  }, [selectedAgentId, apiKeys]); 
 
   const handleLlmChange = (e) => {
     const newLlm = e.target.value;
@@ -518,7 +518,6 @@ export default function Admin({chatbotType}) {
   const [selectedMcpDetail, setSelectedMcpDetail] = useState(null);
 
   useEffect(() => {
-    // 🚀 수정됨: setMcpList 전달하여 저장된 MCP 설정 로드
     loadSavedConfig(setApiKeys, setLayout, setAutoOff, setAutoOffSec, setMcpList);
   }, []);
 

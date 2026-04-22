@@ -166,7 +166,7 @@ export const processVectorIdFinish = async (nativeRagId, uiLlmType, uiRagType, l
   };
 };
 
-// 6. 서버로 RAG 파일 업로드 처리
+// 🚀 6. 서버로 RAG 파일 업로드 처리 (수정됨: asst_ 입력 시 vs_ 탐색 지원)
 export const processKnowledgeUpload = async (ragFiles, uiLlmType, uiRagType, nativeRagId) => {
   if (ragFiles.length === 0) return null;
 
@@ -182,11 +182,48 @@ export const processKnowledgeUpload = async (ragFiles, uiLlmType, uiRagType, nat
   }
 
   if (uiLlmType === "gpt") {
-    if (!nativeRagId.trim()) {
-      throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID를 먼저 입력해주세요.");
+    const inputId = nativeRagId.trim();
+    if (!inputId) {
+      throw new Error("파일을 Vector Store에 연동하려면 Vector Store ID 또는 Assistant ID를 먼저 입력해주세요.");
     }
+    
     const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    await uploadFilesToVectorStore(openaiApiKey, nativeRagId, ragFiles);
+    let targetVectorStoreId = inputId;
+
+    // 🚀 사용자가 Assistant ID (asst_...)를 입력했을 경우의 분기 처리
+    if (inputId.startsWith("asst_")) {
+      try {
+        const asstRes = await fetch(`https://api.openai.com/v1/assistants/${inputId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "OpenAI-Beta": "assistants=v2"
+          }
+        });
+        
+        if (!asstRes.ok) {
+          throw new Error("Assistant 정보를 불러오는데 실패했습니다. 올바른 Assistant ID인지 확인해주세요.");
+        }
+
+        const asstData = await asstRes.json();
+        // Assistant에 연결된 첫 번째 Vector Store ID 추출
+        const attachedVsId = asstData.tool_resources?.file_search?.vector_store_ids?.[0];
+
+        if (attachedVsId) {
+          targetVectorStoreId = attachedVsId; // 진짜 타겟 설정 완료
+          console.log(`[RAG Upload] Assistant(${inputId})에 연결된 VectorStore(${targetVectorStoreId})를 발견했습니다.`);
+        } else {
+          throw new Error("입력하신 Assistant에는 연결된 지식저장소(Vector Store)가 없습니다.");
+        }
+      } catch (err) {
+        throw new Error(err.message || "Assistant 연동 조회 중 오류가 발생했습니다.");
+      }
+    } else if (!inputId.startsWith("vs_")) {
+      throw new Error("유효한 Vector Store ID (vs_...) 또는 Assistant ID (asst_...)를 입력해주세요.");
+    }
+
+    // 찾아낸 (또는 원래 입력된) Vector Store ID로 파일 업로드 실행
+    await uploadFilesToVectorStore(openaiApiKey, targetVectorStoreId, ragFiles);
     return null;
 
   } else if (uiLlmType === "gemini") {
