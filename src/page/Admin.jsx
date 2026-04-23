@@ -217,7 +217,7 @@ export default function Admin({chatbotType}) {
 
   const fileInputRef = useRef(null);
   
-  // 🚨 [새로 추가된 핵심 방어 코드] 이전 선택된 에이전트 ID를 기억하여 UI 강제 초기화 방지
+  // 🚨 [핵심 방어 코드] 이전 선택된 에이전트 ID를 기억
   const prevAgentIdRef = useRef(null);
 
   const [mcpList, setMcpList] = useState([]);
@@ -233,7 +233,6 @@ export default function Admin({chatbotType}) {
     return () => clearTimeout(timer);
   }, []);
 
-  // 🚨 에이전트가 진짜로 변경되었을 때만 UI와 RAG 캐시를 비우도록 수정
   useEffect(() => {
     const agent = apiKeys.find(a => a.id === selectedAgentId);
     if (agent) {
@@ -258,7 +257,7 @@ export default function Admin({chatbotType}) {
        setCustomTags(agent.customTags || []);
        setManualPrompt(agent.promptManual || "");
 
-       // 💡 [핵심 방어 로직] 에이전트가 교체된 경우에만 RAG 폼을 비움 (저장 버튼 누를 땐 안 비움)
+       // 💡 [핵심 로직] 에이전트가 진짜로 교체된 경우에만 폼을 비움
        const isAgentSwitch = prevAgentIdRef.current !== selectedAgentId;
        prevAgentIdRef.current = selectedAgentId;
 
@@ -507,6 +506,7 @@ export default function Admin({chatbotType}) {
   const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
   const [newMcpName, setNewMcpName] = useState("");
   const [newMcpUrl, setNewMcpUrl] = useState("");
+  const [newMcpMethod, setNewMcpMethod] = useState("GET"); // 🚀 추가됨: Method 속성
   const [newMcpApiKey, setNewMcpApiKey] = useState("");
   const [newMcpParams, setNewMcpParams] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -690,6 +690,7 @@ export default function Admin({chatbotType}) {
       name: newMcpName.trim(),
       desc: newMcpUrl.trim(),
       type: "custom",
+      method: newMcpMethod, // 🚀 추가된 Method 전달
       active: true,
       apiKey: newMcpApiKey.trim(),
       parameters: newMcpParams.map(p => ({
@@ -705,6 +706,7 @@ export default function Admin({chatbotType}) {
     setIsMcpModalOpen(false);
     setNewMcpName("");
     setNewMcpUrl("");
+    setNewMcpMethod("GET"); // 초기화
     setNewMcpApiKey("");
     setNewMcpParams([]);
   };
@@ -1433,7 +1435,7 @@ export default function Admin({chatbotType}) {
                           <div className="mcp-name">
                             {mcp.name}
                             <span className={`mcp-badge ${mcp.type === 'built-in' ? 'built-in' : ''}`}>
-                              {mcp.type === 'built-in' ? '기본 제공' : 'Custom URL'}
+                              {mcp.type === 'built-in' ? '기본 제공' : (mcp.method || 'GET')}
                             </span>
                           </div>
                           <div className="mcp-desc">{mcp.desc}</div>
@@ -1454,7 +1456,6 @@ export default function Admin({chatbotType}) {
                             className="btn-icon danger" 
                             title="엔드포인트 삭제" 
                             onClick={() => {
-                              // 🚀 수정됨: 삭제 시 동기화 적용
                               const updatedMcpList = mcpList.filter(m => m.id !== mcp.id);
                               syncMcpToStorage(updatedMcpList, setMcpList);
                             }}
@@ -1469,7 +1470,6 @@ export default function Admin({chatbotType}) {
                             className="toggle-switch"
                             checked={mcp.active}
                             onChange={() => {
-                              // 🚀 수정됨: 토글 시 동기화 적용
                               const updatedMcpList = mcpList.map(m => m.id === mcp.id ? { ...m, active: !m.active } : m);
                               syncMcpToStorage(updatedMcpList, setMcpList);
                             }}
@@ -1779,6 +1779,16 @@ export default function Admin({chatbotType}) {
                   autoFocus
                 />
               </div>
+              
+              {/* 🚀 추가된 Method 선택 폼 */}
+              <div>
+                <label style={{ fontSize: "12px", color: "#a0aec0", marginBottom: "4px", display: "block" }}>Method (GET/POST)</label>
+                <select className="custom-select" value={newMcpMethod} onChange={(e) => setNewMcpMethod(e.target.value)}>
+                  <option value="GET">GET (데이터 조회)</option>
+                  <option value="POST">POST (데이터 생성 및 전송)</option>
+                </select>
+              </div>
+
               <div>
                 <label style={{ fontSize: "12px", color: "#a0aec0", marginBottom: "4px", display: "block" }}>엔드포인트 URL</label>
                 <input
@@ -1876,7 +1886,8 @@ export default function Admin({chatbotType}) {
             <div className="modal-buttons">
               <button className="btn-outline" onClick={() => {
                 setIsMcpModalOpen(false);
-                setNewMcpParams([]); // 취소 시 초기화
+                setNewMcpMethod("GET");
+                setNewMcpParams([]); 
               }}>취소</button>
               <button className="btn-primary" onClick={confirmAddMcp}>추가하기</button>
             </div>

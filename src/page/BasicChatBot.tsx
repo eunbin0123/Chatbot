@@ -152,7 +152,7 @@ export function BasicChatbot({
       const connect = async () => {
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'; 
+          const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss'; 
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
@@ -176,7 +176,6 @@ export function BasicChatbot({
             psInstance.emitUIInteraction({ "Category": "VoiceSetting", "Type": "Voice", "Value": avatarnum == 2 ? "FU_moonjung" : "FU_kangil" });
             psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
           });
-
         } catch (err) {
           console.error("Matchmaker connection failed:", err);
           setIsLoading(false);
@@ -195,7 +194,7 @@ export function BasicChatbot({
   }, [avatarnum, isOpen]); 
 
   // ==========================================
-  // 🚀 메시지 전송 로직
+  // 🚀 메시지 전송 로직 
   // ==========================================
   const sendMessage = async () => {
     const message = inputText.trim();
@@ -235,11 +234,17 @@ export function BasicChatbot({
         finalSystemPrompt = activePromptManual.trim();
       }
 
+      // 💡 [핵심 시간 주입 로직] AI의 시간 착각 방지를 위한 현재 시간 문자열 생성
+      const now = new Date();
+      const currentTimeStr = now.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+      const timeContext = `\n[System Note: 현재 현실 세계의 시각은 ${currentTimeStr} 입니다. 사용자가 '오늘', '내일', '이번 주' 등의 시간을 말하면 반드시 이 시간을 기준으로 실제 날짜를 계산해서 구글 캘린더나 도구에 전달하세요.]`;
+
       console.log("🛠️ [프롬프트 셋팅 확인] 적용된 페르소나 및 규칙:\n", finalSystemPrompt || "설정된 규칙 없음");
 
+      // 💡 시간에 대한 힌트(timeContext)를 유저 메시지에 강제로 결합
       const ENFORCED_USER_MESSAGE = finalSystemPrompt 
-        ? `${message}\n\n================\n[System Directive for AI: 반드시 아래의 페르소나 및 규칙을 엄격하게 적용하여 답변을 생성할 것.]\n${finalSystemPrompt}`
-        : message;
+        ? `${message}\n\n================\n[System Directive for AI: 반드시 아래의 페르소나 및 규칙을 엄격하게 적용하여 답변할 것.]\n${finalSystemPrompt}${timeContext}`
+        : `${message}${timeContext}`;
 
       const TOOL_REMINDER_MESSAGE = finalSystemPrompt 
         ? `[System Reminder: 방금 제공된 검색 결과나 도구 데이터를 바탕으로 답변하되, 반드시 처음에 지시받은 페르소나와 규칙(존댓말 등)을 유지하여 자연스럽게 답변하세요.]`
@@ -484,7 +489,6 @@ export function BasicChatbot({
     }
   };
 
-  // 🚨 [수정된 부분] X 버튼 로직
   const CloseButton = () => (
     <button 
       className="fw-header-btn" 
@@ -492,9 +496,9 @@ export function BasicChatbot({
       onClick={(e) => { 
         e.stopPropagation(); 
         if (isHistoryOpen) {
-          setIsHistoryOpen(false); // 창이 열려있으면 내역 창만 닫기
+          setIsHistoryOpen(false); 
         } else {
-          closeWidget(); // 안 열려있으면 위젯 전체 끄기
+          closeWidget(); 
         }
       }} 
       title={isHistoryOpen ? "대화 내역 닫기" : "위젯 닫기"}
