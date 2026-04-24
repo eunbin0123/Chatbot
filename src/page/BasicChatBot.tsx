@@ -152,7 +152,7 @@ export function BasicChatbot({
       const connect = async () => {
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'wss' : 'wss'; 
+          const protocol = window.location.protocol === 'https:' ? 'ws' : 'ws'; 
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
