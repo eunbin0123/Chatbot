@@ -253,20 +253,11 @@ export default function Admin({ chatbotType }) {
     llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
   });
 
-  // ── MCP (새 디렉토리 구조 및 로컬 스토리지 연동) ──
-  const [mcpDirectories, setMcpDirectories] = useState(() => {
-    const savedDirs = localStorage.getItem("klever_mcp_directories");
-    if (savedDirs) {
-      try {
-        return JSON.parse(savedDirs);
-      } catch (e) {
-        console.error("MCP Directory 파싱 오류:", e);
-      }
-    }
-    // 하드코딩된 더미데이터 제거, 빈 배열 반환
-    return [];
-  });
-  
+  // ── MCP (폴더 및 아이템 관리) ──
+  const [mcpDirectories, setMcpDirectories] = useState([]); // 초기 빈 배열, 서버 데이터 로드 시 채워짐
+  const [mcpList, setMcpList] = useState([]); // 백엔드 동기화용 Flat 리스트
+  const [isInitialMcpLoaded, setIsInitialMcpLoaded] = useState(false);
+
   const [isAddDirModalOpen, setIsAddDirModalOpen] = useState(false);
   const [newDirName, setNewDirName] = useState("");
   const [newDirDesc, setNewDirDesc] = useState("");
@@ -279,7 +270,6 @@ export default function Admin({ chatbotType }) {
   const [newApiMethod, setNewApiMethod] = useState("GET");
   const [newApiKey, setNewApiKey] = useState("");
   const [newApiParams, setNewApiParams] = useState([{ key: "", type: "String", desc: "" }]);
-  const [mcpList, setMcpList] = useState([]);
 
   // ── 프롬프트 ──
   const [selectedTags, setSelectedTags] = useState(["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
@@ -308,22 +298,50 @@ export default function Admin({ chatbotType }) {
     loadSavedConfig(setApiKeys, setLayout, setAutoOff, setAutoOffSec, setMcpList);
   }, []);
 
+  // 🚀 [해결] 처음 서버에서 mcpList를 가져왔을 때, 로컬 스토리지의 디렉토리와 합쳐서 복원(Hydration)
   useEffect(() => {
-    // 디렉토리 구조 로컬 스토리지 저장
-    localStorage.setItem("klever_mcp_directories", JSON.stringify(mcpDirectories));
+    if (mcpList.length > 0 && !isInitialMcpLoaded) {
+      setIsInitialMcpLoaded(true);
 
-    // 기존 챗봇 컴포넌트용 Flat 리스트 매핑
-    const flatMcpList = [];
-    mcpDirectories.forEach(dir => {
-       dir.items.forEach(item => {
-           flatMcpList.push({
-               id: item.id, name: item.name, desc: item.url, type: "custom",
-               method: item.method, active: item.active, apiKey: item.apiKey, parameters: item.params
-           });
-       });
-    });
-    syncMcpToStorage(flatMcpList, setMcpList);
-  }, [mcpDirectories]);
+      let savedDirs = [];
+      try {
+        const local = localStorage.getItem("klever_mcp_directories");
+        if (local) savedDirs = JSON.parse(local);
+      } catch (e) {
+        console.error("MCP Directory 파싱 오류:", e);
+      }
+
+      // 껍데기 폴더가 하나도 없으면 기본 폴더 생성
+      if (savedDirs.length === 0) {
+        savedDirs = [{ id: "dir_default", name: "연동된 API", description: "서버에서 불러온 도구들", active: true, isOpen: true, items: [] }];
+      }
+
+      // 매핑 (서버의 최신 데이터 기준으로 UI 복원)
+      mcpList.forEach((mcp) => {
+        const mappedItem = {
+          id: mcp.id, name: mcp.name, url: mcp.desc, method: mcp.method || "GET",
+          active: mcp.active, apiKey: mcp.apiKey || "", params: mcp.parameters || []
+        };
+
+        // 기존에 속해있던 폴더 찾기
+        let found = false;
+        for (let dir of savedDirs) {
+          const existingIdx = dir.items.findIndex(i => i.id === mcp.id);
+          if (existingIdx >= 0) {
+            dir.items[existingIdx] = mappedItem;
+            found = true;
+            break;
+          }
+        }
+        // 속해있던 폴더가 없으면 첫번째 폴더에 삽입
+        if (!found && savedDirs[0]) {
+          savedDirs[0].items.push(mappedItem);
+        }
+      });
+
+      setMcpDirectories([...savedDirs]);
+    }
+  }, [mcpList, isInitialMcpLoaded]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -432,7 +450,6 @@ export default function Admin({ chatbotType }) {
     }
   };
 
-  // ── 지식 업로드 & URL 스크래핑 ──
   const handleUploadKnowledge = () => {
     if (!ragInput.trim() && ragFiles.length === 0 && ragTexts.length === 0) return;
     setIsUploading(true);
@@ -512,22 +529,39 @@ export default function Admin({ chatbotType }) {
     setRagFiles((prev) => [...prev, ...newFiles]);
   };
 
-  // ── MCP 디렉토리 핸들러 ──
-  const toggleDirectory = (id) => setMcpDirectories((prev) => prev.map((dir) => dir.id === id ? { ...dir, isOpen: !dir.isOpen } : dir));
+  // ── 🚀 [해결] MCP 중앙 관리 함수 (수정/추가/삭제 시 모두 호출하여 동기화) ──
+  const updateMcpData = (newDirs) => {
+    setMcpDirectories(newDirs);
+    localStorage.setItem("klever_mcp_directories", JSON.stringify(newDirs));
+
+    const flat = [];
+    newDirs.forEach(dir => {
+       dir.items.forEach(item => {
+           flat.push({
+               id: item.id, name: item.name, desc: item.url, type: "custom",
+               method: item.method, active: item.active, apiKey: item.apiKey, parameters: item.params
+           });
+       });
+    });
+    setMcpList(flat);
+    syncMcpToStorage(flat, setMcpList);
+  };
+
+  const toggleDirectory = (id) => updateMcpData(mcpDirectories.map((dir) => dir.id === id ? { ...dir, isOpen: !dir.isOpen } : dir));
   const toggleDirectoryActive = (id, e) => {
     e.stopPropagation();
-    setMcpDirectories((prev) => prev.map((dir) => {
+    updateMcpData(mcpDirectories.map((dir) => {
       if (dir.id !== id) return dir;
       return { ...dir, active: dir.items.length === 0 ? false : !dir.active };
     }));
   };
-  const handleDeleteDirectory = (id, e) => { e.stopPropagation(); setMcpDirectories((prev) => prev.filter((dir) => dir.id !== id)); };
+  const handleDeleteDirectory = (id, e) => { e.stopPropagation(); updateMcpData(mcpDirectories.filter((dir) => dir.id !== id)); };
   const toggleItemActive = (dirId, itemId, e) => {
     e.stopPropagation();
-    setMcpDirectories((prev) => prev.map((dir) => dir.id === dirId ? { ...dir, items: dir.items.map((item) => item.id === itemId ? { ...item, active: !item.active } : item) } : dir));
+    updateMcpData(mcpDirectories.map((dir) => dir.id === dirId ? { ...dir, items: dir.items.map((item) => item.id === itemId ? { ...item, active: !item.active } : item) } : dir));
   };
   const handleDeleteApiItem = (dirId, itemId) => {
-    setMcpDirectories((prev) => prev.map((dir) => {
+    updateMcpData(mcpDirectories.map((dir) => {
       if (dir.id !== dirId) return dir;
       const newItems = dir.items.filter((item) => item.id !== itemId);
       return { ...dir, items: newItems, active: newItems.length === 0 ? false : dir.active };
@@ -536,7 +570,7 @@ export default function Admin({ chatbotType }) {
 
   const handleAddDirectory = () => {
     const dirName = newDirName.trim() || "새 디렉토리";
-    setMcpDirectories((prev) => [...prev, { id: `dir_${Date.now()}`, name: dirName, description: newDirDesc.trim(), active: false, isOpen: true, items: [] }]);
+    updateMcpData([...mcpDirectories, { id: `dir_${Date.now()}`, name: dirName, description: newDirDesc.trim(), active: false, isOpen: true, items: [] }]);
     setIsAddDirModalOpen(false); setNewDirName(""); setNewDirDesc("");
   };
 
@@ -546,18 +580,22 @@ export default function Admin({ chatbotType }) {
 
   const handleAddApiItem = () => {
     if (!targetDirId) return;
+    
+    let updatedDirs = [...mcpDirectories];
     if (targetItemId) {
-      setMcpDirectories((prev) => prev.map((dir) => {
+      updatedDirs = updatedDirs.map((dir) => {
         if (dir.id !== targetDirId) return dir;
         return {
           ...dir,
           items: dir.items.map((item) => item.id === targetItemId ? { ...item, name: newApiName.trim() || "이름 없음", url: newApiUrl, method: newApiMethod, apiKey: newApiKey, params: newApiParams.filter((p) => p.key.trim() !== "") } : item),
         };
-      }));
+      });
     } else {
       const newItem = { id: `item_${Date.now()}`, name: newApiName.trim() || "새 항목", url: newApiUrl, method: newApiMethod, apiKey: newApiKey, params: newApiParams.filter((p) => p.key.trim() !== ""), active: true };
-      setMcpDirectories((prev) => prev.map((dir) => dir.id === targetDirId ? { ...dir, items: [...dir.items, newItem] } : dir));
+      updatedDirs = updatedDirs.map((dir) => dir.id === targetDirId ? { ...dir, items: [...dir.items, newItem] } : dir);
     }
+
+    updateMcpData(updatedDirs);
     setIsAddItemModalOpen(false);
     setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey(""); setNewApiParams([{ key: "", type: "String", desc: "" }]); setTargetDirId(null); setTargetItemId(null);
   };
@@ -626,8 +664,6 @@ export default function Admin({ chatbotType }) {
   const handleSaveClick = () => setIsModalOpen(true);
   const confirmSave = () => {
     setIsModalOpen(false);
-    const flatMcpList = [];
-    mcpDirectories.forEach(dir => dir.items.forEach(item => flatMcpList.push({ id: item.id, name: item.name, desc: item.url, type: "custom", method: item.method, active: item.active, apiKey: item.apiKey, parameters: item.params })));
     
     const updatedApiKeys = apiKeys.map(k => {
       if (k.id === selectedAgentId) {
@@ -655,7 +691,9 @@ export default function Admin({ chatbotType }) {
       apiKeys: updatedApiKeys, selectedAgentId, uiCharacter, 
       uiLlmType: getMappedLlmType(stageEngines.response), 
       uiRagType: stageStatus.rag ? "native" : "none", 
-      autoAssistantId, promptMode, selectedTags, customTags, manualPrompt, layout, autoOff, autoOffSec, digitalHumans, mcpList: flatMcpList, setApiKeys,
+      autoAssistantId, promptMode, selectedTags, customTags, manualPrompt, layout, autoOff, autoOffSec, digitalHumans, 
+      mcpList: mcpList, // 중앙 관리되는 리스트 전송
+      setApiKeys,
       engines: { analysis: getMappedLlmType(stageEngines.analysis), rag: getMappedLlmType(stageEngines.rag), response: getMappedLlmType(stageEngines.response) },
       keys: { analysis: stageEngines.analysisKey, response: stageEngines.responseKey, rag: stageEngines.ragKeys }
     });
@@ -672,7 +710,7 @@ export default function Admin({ chatbotType }) {
     setSelectedTags(["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]); setPromptMode("tag"); setCustomTags([]); setCustomTagInput(""); setManualPrompt("");
     setStageEngines({ analysis: "OpenAI GPT-5.3", rag: "OpenAI GPT-5.3", response: "OpenAI GPT-5.3", analysisKey: "", responseKey: "", ragKeys: { gpt: "", gemini: "", llamon: "" }, ragVectorId: "" });
     setStageStatus({ analysis: true, rag: true, mcp: true, prompt: true, response: true });
-    setMcpDirectories([]);
+    updateMcpData([]); // 초기화 시 빈 폴더로 리셋
   };
 
   // ── 임베드 코드 ──
@@ -975,8 +1013,6 @@ export default function Admin({ chatbotType }) {
                           </div>
 
                           <div style={{ border: "1px solid #2d3748", borderRadius: "16px", padding: "24px", backgroundColor: "rgba(0,0,0,0.2)" }}>
-                            
-                            {/* RAG 엔진별 API Key 저장 */}
                             <div className="form-group" style={{ marginBottom: "20px" }}>
                               <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>
                                 {stageEngines.rag.includes("GPT") ? "OpenAI" : "Gemini"} API Key 설정
@@ -993,7 +1029,6 @@ export default function Admin({ chatbotType }) {
                                 }} />
                             </div>
 
-                            {/* Vector Store ID */}
                             {stageEngines.rag.includes("OpenAI") && (
                               <div className="form-group" style={{ marginBottom: "20px" }}>
                                 <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>Vector Store ID (또는 Assistant ID)</label>
@@ -1007,7 +1042,6 @@ export default function Admin({ chatbotType }) {
                               </div>
                             )}
 
-                            {/* 데이터 학습 */}
                             <div className="form-group" style={{ marginBottom: "24px" }}>
                               <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>신규 데이터 학습 (텍스트, URL, 파일)</label>
                               <div className={`unified-rag-box ${isDragging ? "drag-active" : ""} ${isUploading ? "uploading" : ""}`}
@@ -1053,7 +1087,6 @@ export default function Admin({ chatbotType }) {
                               </div>
                             </div>
 
-                            {/* 지식 목록 */}
                             <div>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: isKnowledgeListOpen ? "8px" : "0" }}>
                                 <button className="btn-icon" onClick={() => setIsKnowledgeListOpen(!isKnowledgeListOpen)} style={{ padding: "6px", margin: "-6px" }}>
@@ -1266,11 +1299,11 @@ export default function Admin({ chatbotType }) {
       )}
       </div>
 
-      {/* ════ 모달 UI (디렉토리 추가) - 디자인 깨짐 수정 완료 ════ */}
+      {/* ════ 모달 UI (디렉토리 추가) - 디자인 깨짐 수정 ════ */}
       {isAddDirModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: "420px", textAlign: "left" }}>
-            <h2 className="modal-title" style={{ marginBottom: "8px" }}>디렉토리 생성</h2>
+          <div className="modal-box" style={{ maxWidth: "420px", textAlign: "left", padding: "28px" }}>
+            <h2 className="modal-title" style={{ marginBottom: "8px", fontSize: "20px" }}>디렉토리 생성</h2>
             <p className="modal-desc" style={{ marginBottom: "24px" }}>MCP 도구들을 분류할 새로운 그룹을 만듭니다.</p>
             <div className="form-group" style={{ marginBottom: "16px" }}>
               <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>디렉토리명</label>
@@ -1280,19 +1313,19 @@ export default function Admin({ chatbotType }) {
               <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>설명 (선택)</label>
               <textarea className="custom-input" style={{ height: "80px", resize: "none" }} value={newDirDesc} onChange={(e) => setNewDirDesc(e.target.value)} placeholder="디렉토리에 대한 설명을 입력하세요." />
             </div>
-            <div className="modal-buttons" style={{ gap: "12px" }}>
-              <button className="btn-outline" onClick={() => { setIsAddDirModalOpen(false); setNewDirName(""); setNewDirDesc(""); }}>취소</button>
-              <button className="btn-primary" onClick={handleAddDirectory}>추가하기</button>
+            <div className="modal-buttons" style={{ gap: "12px", display: "flex" }}>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => { setIsAddDirModalOpen(false); setNewDirName(""); setNewDirDesc(""); }}>취소</button>
+              <button className="btn-primary" style={{ flex: 1.5 }} onClick={handleAddDirectory}>추가하기</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ════ 모달 UI (항목 추가) - 디자인 깨짐 수정 완료 ════ */}
+      {/* ════ 모달 UI (항목 추가) - 디자인 깨짐 수정 ════ */}
       {isAddItemModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: "600px", textAlign: "left" }}>
-            <h2 className="modal-title" style={{ marginBottom: "8px" }}>{targetItemId ? "항목 수정" : "새 항목 추가"}</h2>
+          <div className="modal-box" style={{ maxWidth: "600px", textAlign: "left", padding: "28px" }}>
+            <h2 className="modal-title" style={{ marginBottom: "8px", fontSize: "20px" }}>{targetItemId ? "항목 수정" : "새 항목 추가"}</h2>
             <p className="modal-desc" style={{ marginBottom: "24px" }}>연결할 외부 API 엔드포인트와 파라미터를 상세히 정의하십시오.</p>
             
             <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
@@ -1321,10 +1354,10 @@ export default function Admin({ chatbotType }) {
             
             <div style={{ border: "1px solid #4a5568", borderRadius: "12px", padding: "16px", backgroundColor: "rgba(0,0,0,0.15)", marginBottom: "32px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <label style={{ fontSize: "13px", color: "#fff", fontWeight: "700" }}>파라미터 (Parameters)</label>
-                <button onClick={handleAddParam} style={{ background: "transparent", color: "var(--accent)", border: "1px solid var(--accent)", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" }}>+ 추가</button>
+                <label style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: "700", margin: 0 }}>파라미터 (Parameters)</label>
+                <button onClick={handleAddParam} style={{ background: "transparent", color: "#00c6ff", border: "1px solid #00c6ff", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" }}>+ 추가</button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "150px", overflowY: "auto", paddingRight: "8px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "150px", overflowY: "auto", paddingRight: "4px" }}>
                 {newApiParams.map((param, idx) => (
                   <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                     <input type="text" placeholder="Key (예: city)" className="custom-input" style={{ flex: 1, padding: "8px" }} value={param.key} onChange={(e) => updateParam(idx, "key", e.target.value)} />
@@ -1333,16 +1366,16 @@ export default function Admin({ chatbotType }) {
                     </select>
                     <input type="text" placeholder="설명 (예: 도시 이름)" className="custom-input" style={{ flex: 1.5, padding: "8px" }} value={param.desc} onChange={(e) => updateParam(idx, "desc", e.target.value)} />
                     {newApiParams.length > 1 && (
-                      <button onClick={() => removeParam(idx)} style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", padding: "4px" }}>✕</button>
+                      <button onClick={() => removeParam(idx)} style={{ background: "none", border: "none", color: "#e53e3e", cursor: "pointer", padding: "4px" }}>✕</button>
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="modal-buttons" style={{ gap: "12px" }}>
-              <button className="btn-outline" onClick={() => { setIsAddItemModalOpen(false); setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey(""); setNewApiParams([{ key: "", type: "String", desc: "" }]); setTargetDirId(null); setTargetItemId(null); }}>취소</button>
-              <button className="btn-primary" onClick={handleAddApiItem}>{targetItemId ? "수정완료" : "추가하기"}</button>
+            <div className="modal-buttons" style={{ gap: "12px", display: "flex" }}>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => { setIsAddItemModalOpen(false); setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey(""); setNewApiParams([{ key: "", type: "String", desc: "" }]); setTargetDirId(null); setTargetItemId(null); }}>취소</button>
+              <button className="btn-primary" style={{ flex: 1.5 }} onClick={handleAddApiItem}>{targetItemId ? "수정완료" : "추가하기"}</button>
             </div>
           </div>
         </div>
