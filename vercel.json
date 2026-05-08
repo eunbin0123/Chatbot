@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/tts-proxy/tts",
+      "destination": "/api/tts"
+    }
+  ]
+}
