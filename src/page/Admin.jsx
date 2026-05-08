@@ -162,7 +162,7 @@ const i18n = {
   },
 };
 
-// ── 눈 아이콘 토글 버튼 컴포넌트 ──
+// ── 눈 아이콘 토글 버튼 컴포넌트 (탭 2에서 사용) ──
 function PasswordInput({ value, onChange, placeholder, style = {} }) {
   const [show, setShow] = useState(false);
   return (
@@ -936,8 +936,13 @@ export default function Admin({ chatbotType }) {
                           <span className="api-key-name">{keyObj.name}</span>
                           <span className="api-key-date">{keyObj.date}</span>
                         </div>
-                        {/* ✅ 수정: API 키 값도 눈 아이콘으로 토글 */}
-                        <ApiKeyField value={keyObj.value} />
+                        {/* ✅ 수정: 눈 아이콘 컴포넌트를 제거하고 항상 보이도록 일반 input 적용 */}
+                        <input
+                          type="text"
+                          className="api-key-value"
+                          value={keyObj.value}
+                          readOnly
+                        />
                       </div>
                       <div className="api-key-actions">
                         <button className="btn-icon" onClick={() => handleCopySpecificKey(keyObj.value)} title="키 복사">
@@ -1606,51 +1611,6 @@ export default function Admin({ chatbotType }) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── 탭 1: API 키 목록에서 키값 보기/숨기기 토글 ──
-function ApiKeyField({ value }) {
-  const [show, setShow] = useState(false);
-  return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center", flex: 1 }}>
-      <input
-        type={show ? "text" : "password"}
-        className="api-key-value"
-        value={value}
-        readOnly
-        style={{ paddingRight: "36px" }}
-      />
-      <button
-        type="button"
-        onClick={() => setShow((prev) => !prev)}
-        style={{
-          position: "absolute",
-          right: "10px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: show ? "#00c6ff" : "#718096",
-          display: "flex",
-          alignItems: "center",
-          padding: 0,
-          transition: "color 0.2s",
-        }}
-        title={show ? "숨기기" : "보기"}
-      >
-        {show ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-            <line x1="1" y1="1" x2="23" y2="23"/>
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        )}
-      </button>
     </div>
   );
 }
