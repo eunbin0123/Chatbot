@@ -94,6 +94,7 @@ export const saveConfiguration = ({
   setApiKeys,
   engines,
   keys,
+  stageStatus,  // ← 추가
 }: any) => {
   const updatedApiKeys = apiKeys.map((agent: any) => 
     agent.id === selectedAgentId ? { 
@@ -101,13 +102,13 @@ export const saveConfiguration = ({
       character: uiCharacter,
       llm: uiLlmType,
       assistantId: uiRagType === "native" ? autoAssistantId : "",
-      promptMode: promptMode,
+      promptMode,
       promptTags: selectedTags,
-      customTags: customTags,
+      customTags,
       promptManual: manualPrompt,
-      // ✅ [FIX #12] engines/keys 실제로 저장
       engines: engines || agent.engines,
       keys: keys || agent.keys,
+      stageStatus: stageStatus || agent.stageStatus,  // ← 추가
     } : agent
   );
   setApiKeys(updatedApiKeys);

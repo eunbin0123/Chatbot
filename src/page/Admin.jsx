@@ -430,6 +430,7 @@ export default function Admin({ chatbotType }) {
       setSelectedTags(agent.promptTags || ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
       setCustomTags(agent.customTags || []);
       setManualPrompt(agent.promptManual || "");
+setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prompt: true, response: true });
 
       const isAgentSwitch = prevAgentIdRef.current !== selectedAgentId;
       prevAgentIdRef.current = selectedAgentId;
@@ -752,7 +753,8 @@ export default function Admin({ chatbotType }) {
 
     const updatedApiKeys = apiKeys.map((k) => {
       if (k.id === selectedAgentId) {
-        return { ...k, llm: currentEngines.response, engines: currentEngines, keys: currentKeys };
+        return { ...k, llm: currentEngines.response, engines: currentEngines, keys: currentKeys,
+      stageStatus: stageStatus, };
       }
       return k;
     });
@@ -777,6 +779,7 @@ export default function Admin({ chatbotType }) {
       setApiKeys,
       engines: currentEngines,
       keys: currentKeys,
+      stageStatus,
     });
     setAlertMessage("성공적으로 적용되었습니다!");
   };
@@ -794,7 +797,13 @@ export default function Admin({ chatbotType }) {
     setSelectedTags(["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
     setPromptMode("tag"); setCustomTags([]); setCustomTagInput(""); setManualPrompt("");
     setStageEngines({ analysis: "OpenAI GPT-5.3", rag: "OpenAI GPT-5.3", response: "OpenAI GPT-5.3", analysisKey: "", responseKey: "", ragKeys: { gpt: "", gemini: "", llamon: "" }, ragVectorId: "" });
-    setStageStatus({ analysis: true, rag: true, mcp: true, prompt: true, response: true });
+    setStageStatus({
+      analysis: true,
+      rag: true,
+      mcp: true,
+      prompt: true,
+      response: true,
+    });   
     updateMcpData([]);
   };
 
