@@ -17,7 +17,7 @@ interface BasicChatbotProps {
   promptMode?: string;
   promptTags?: string[];
   promptManual?: string;
-  mcpList?: any[]; // ✅ 추가
+  mcpList?: any[];
 }
 
 interface ChatMessage {
@@ -25,7 +25,6 @@ interface ChatMessage {
   text: string;
 }
 
-// 멀티턴용 LLM 메시지 히스토리 타입
 interface LlmMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -56,7 +55,7 @@ export function BasicChatbot({
   promptMode = "tag",
   promptTags = [],
   promptManual = "",
-  mcpList = [], // ✅ 추가
+  mcpList = [],
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(false);
@@ -76,9 +75,7 @@ export function BasicChatbot({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
 
-  // ✅ 멀티턴 대화 히스토리 (LLM에 전달되는 실제 messages 배열)
   const llmHistoryRef = useRef<LlmMessage[]>([]);
-
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
   const threadIdRef = useRef<string | null>(null);
@@ -176,7 +173,6 @@ export function BasicChatbot({
     disconnectStreaming();
     stopCurrentAudio();
     threadIdRef.current = null;
-    // ✅ 위젯 닫을 때 LLM 히스토리도 초기화
     llmHistoryRef.current = [];
     setIsMicOn(false);
     setIsOpen(false);
@@ -187,19 +183,36 @@ export function BasicChatbot({
   };
 
   // ==========================================
-  // ✅ 픽셀스트리밍 연결 및 무한루프 방지(Timeout) 로직 추가
+  // ✅ 가장 완벽한 픽셀스트리밍 Fallback(안전장치) 로직
   // ==========================================
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
-      const connect = async () => {
-        let connectionTimeout: any;
+      let isCancelled = false;
+      
+      // 공통 실패 처리 함수: 로딩을 즉시 해제하고 텍스트 채팅 모드로 전환
+      const handleFallback = (reason: string) => {
+        if (isCancelled) return;
+        console.warn(`[Fallback] ${reason} - 텍스트 채팅으로 강제 전환`);
+        isCancelled = true;
+        setIsLoading(false);
+        setIsPsConnected(false);
+        setIsPsFailed(true);
+        setIsHistoryOpen(true);
+      };
 
+      // 🔥 1. 절대 타이머: 통신이 무한 펜딩에 빠져도 무조건 5초 뒤에 로딩을 풉니다.
+      const watchdogTimer = setTimeout(() => {
+        handleFallback("연결 시간 초과 (5초)");
+      }, 5000);
+
+      const connect = async () => {
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = 'ws';
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
+          const protocol = 'ws';
           const ssUrl = `${protocol}://${data.signallingServer}`;
+          
           const config = new Config({
             initialSettings: {
               ss: ssUrl, AutoPlayVideo: true, AutoConnect: true, HoveringMouse: true, KeyboardInput: false, MouseInput: false,
@@ -208,17 +221,10 @@ export function BasicChatbot({
           const psInstance = new PixelStreaming(config);
           psInstanceRef.current = psInstance;
 
-          // ✅ 1. 최후의 안전장치: 5초 안에 영상이 안 나오면 강제로 텍스트 채팅 전환 (무한 루프 방지)
-          connectionTimeout = setTimeout(() => {
-            console.warn("Pixel Streaming 연결 시간 초과. 텍스트 채팅으로 전환합니다.");
-            setIsLoading(false);
-            setIsPsConnected(false);
-            setIsPsFailed(true);
-            setIsHistoryOpen(true);
-          }, 5000);
-
+          // ✅ 2. 영상 연결에 성공하면 타이머를 끄고 정상 모드로 돌립니다.
           psInstance.addEventListener("videoInitialized", () => {
-            clearTimeout(connectionTimeout); // ✅ 정상 연결 시 타임아웃 해제
+            clearTimeout(watchdogTimer);
+            isCancelled = true; // 성공했으므로 Fallback 차단
             if (videoWrapperRef.current) {
               videoWrapperRef.current.innerHTML = "";
               videoWrapperRef.current.appendChild(psInstance.videoElementParent);
@@ -232,34 +238,30 @@ export function BasicChatbot({
             psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
           });
 
-          psInstance.addEventListener("webRtcDisconnected", () => {
-            clearTimeout(connectionTimeout);
-            setIsPsConnected(false);
-            setIsPsFailed(true);
-            setIsHistoryOpen(true);
-          });
+          // ✅ 3. 에러 감지 시 5초를 기다리지 않고 즉시 텍스트 채팅 모드로 넘깁니다.
+          const triggerError = () => {
+            clearTimeout(watchdogTimer);
+            handleFallback("WebSocket 또는 WebRTC 오류 발생");
+          };
 
-          // ✅ 2. 웹소켓 오류 발생 시 즉시 텍스트 채팅으로 전환
-          psInstance.addEventListener("webSocketClosed", () => {
-            clearTimeout(connectionTimeout);
-            console.warn("WebSocket 연결 실패. 텍스트 채팅으로 전환합니다.");
-            setIsLoading(false);
-            setIsPsConnected(false);
-            setIsPsFailed(true);
-            setIsHistoryOpen(true);
-          });
+          psInstance.addEventListener("webRtcDisconnected", triggerError);
+          psInstance.addEventListener("webSocketClosed", triggerError);
+          psInstance.addEventListener("webSocketError", triggerError);
+          psInstance.addEventListener("webRtcFailed", triggerError);
 
         } catch (err) {
-          clearTimeout(connectionTimeout);
-          console.error("Matchmaker connection failed:", err);
-          setIsLoading(false);
-          setIsPsConnected(false);
-          setIsPsFailed(true);
-          setIsHistoryOpen(true);
+          clearTimeout(watchdogTimer);
+          handleFallback(`Fetch 에러: ${err}`);
         }
       };
+      
       connect();
-      return () => disconnectStreaming();
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(watchdogTimer);
+        disconnectStreaming();
+      };
     }
   }, [isOpen, unrealurl, avatarnum]);
 
@@ -303,9 +305,6 @@ export function BasicChatbot({
     }
   };
 
-  // ==========================================
-  // ✅ 시스템 프롬프트 빌더
-  // ==========================================
   const buildSystemPrompt = (): string => {
     const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
     const savedCustomTags = widgetConfig.customTags || [];
@@ -332,9 +331,6 @@ export function BasicChatbot({
     return "";
   };
 
-  // ==========================================
-  // ✅ 진짜 MCP Tool Use 사이클 - GPT (non-Assistant)
-  // ==========================================
   const runGptWithMcp = async (
     gptApiKey: string,
     messagesPayload: any[],
@@ -361,12 +357,10 @@ export function BasicChatbot({
       const responseMsg = data.choices?.[0]?.message;
       if (!responseMsg) throw new Error("GPT 응답이 비어있습니다.");
 
-      // tool_calls 없으면 최종 응답
       if (!responseMsg.tool_calls || responseMsg.tool_calls.length === 0) {
         return responseMsg.content || "";
       }
 
-      // ✅ tool_calls 있으면: assistant 메시지 추가 후 도구 병렬 실행
       messagesPayload.push(responseMsg);
 
       const toolResults = await Promise.all(
@@ -385,15 +379,11 @@ export function BasicChatbot({
       );
 
       messagesPayload.push(...toolResults);
-      // 다음 round에서 LLM이 tool 결과 보고 최종 응답 생성
     }
 
     throw new Error(`MCP Tool Use: 최대 반복 횟수(${MAX_TOOL_ROUNDS})를 초과했습니다.`);
   };
 
-  // ==========================================
-  // ✅ 진짜 MCP Tool Use 사이클 - Gemini
-  // ==========================================
   const runGeminiWithMcp = async (
     apiKey: string,
     geminiContents: any[],
@@ -426,15 +416,12 @@ export function BasicChatbot({
       const functionCallParts = parts.filter((p: any) => p.functionCall);
       const textParts = parts.filter((p: any) => p.text);
 
-      // functionCall 없으면 최종 응답
       if (functionCallParts.length === 0) {
         return textParts.map((p: any) => p.text).join("") || "";
       }
 
-      // model 응답 전체를 contents에 추가
       geminiContents.push({ role: "model", parts });
 
-      // 도구 병렬 실행
       const functionResponseParts = await Promise.all(
         functionCallParts.map(async (part: any) => {
           const { name, args } = part.functionCall;
@@ -452,9 +439,6 @@ export function BasicChatbot({
     throw new Error(`MCP Tool Use: 최대 반복 횟수(${MAX_TOOL_ROUNDS})를 초과했습니다.`);
   };
 
-  // ==========================================
-  // ✅ 메시지 전송 로직 (멀티턴 + 진짜 MCP 사이클)
-  // ==========================================
   const sendMessage = async () => {
     const message = inputText.trim();
     if (!message || isLoading || isThinking) return;
@@ -466,7 +450,6 @@ export function BasicChatbot({
 
       if (!isPsConnected && !isHistoryOpen) setIsHistoryOpen(true);
 
-      // ✅ prop으로 받은 mcpList 우선 사용, 없으면 localStorage 폴백
       const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
       const activeMcpList = (mcpList && mcpList.length > 0)
         ? mcpList.filter((m: any) => m.active)
@@ -481,13 +464,9 @@ export function BasicChatbot({
       const currentLlm = responseLlm || "gpt";
       let aiResponse = "";
 
-      // ==========================================
-      // 🟢 GPT 처리
-      // ==========================================
       if (currentLlm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-        // ── Assistant API (RAG 포함) 경로 ──
         if (assistantId) {
           let currentThreadId = threadIdRef.current;
           if (!currentThreadId) {
@@ -529,7 +508,6 @@ export function BasicChatbot({
           const runId = runData.id;
           let runStatus = runData.status;
 
-          // ✅ Assistant API의 tool_use 사이클 (requires_action 처리)
           while (runStatus === "queued" || runStatus === "in_progress" || runStatus === "requires_action") {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const checkRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`, {
@@ -571,30 +549,21 @@ export function BasicChatbot({
           }
 
         } else {
-          // ── 일반 Chat Completions 경로 (멀티턴) ──
-          // ✅ 첫 메시지에만 system prompt 추가, 이후엔 히스토리 누적
           if (llmHistoryRef.current.length === 0 && finalSystemPrompt) {
             llmHistoryRef.current.push({ role: "system", content: finalSystemPrompt });
           }
           llmHistoryRef.current.push({ role: "user", content: messageWithTime });
 
-          // runGptWithMcp에 히스토리 복사본 전달 (tool 메시지 포함 후 내부에서 수정됨)
           const messagesForThisTurn = [...llmHistoryRef.current];
           aiResponse = await runGptWithMcp(gptApiKey, messagesForThisTurn, activeMcpList);
 
-          // ✅ 최종 assistant 응답을 히스토리에 추가 (tool 메시지 제외, 최종 텍스트만)
           llmHistoryRef.current.push({ role: "assistant", content: aiResponse });
         }
 
-      // ==========================================
-      // 🟡 Gemini 처리
-      // ==========================================
       } else {
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY;
 
-          // ✅ Gemini 멀티턴: contents 배열에 대화 히스토리 누적
-          // llmHistoryRef를 Gemini 형식으로 변환
           const geminiContents: any[] = llmHistoryRef.current
             .filter((m) => m.role !== "system")
             .map((m) => ({
@@ -602,7 +571,6 @@ export function BasicChatbot({
               parts: [{ text: m.content }]
             }));
 
-          // RAG 파일 첨부 (첫 메시지에만)
           const userParts: any[] = [{ text: messageWithTime }];
           if (assistantId && geminiContents.length === 0) {
             try {
@@ -610,16 +578,13 @@ export function BasicChatbot({
               geminiFiles.forEach((file: any) => {
                 userParts.unshift({ fileData: { mimeType: file.mimeType, fileUri: file.uri } });
               });
-            } catch {
-              // 일반 ID 형식이면 무시
-            }
+            } catch {}
           }
 
           geminiContents.push({ role: "user", parts: userParts });
 
           aiResponse = await runGeminiWithMcp(apiKey, geminiContents, finalSystemPrompt, activeMcpList);
 
-          // ✅ 히스토리 업데이트
           llmHistoryRef.current.push({ role: "user", content: messageWithTime });
           llmHistoryRef.current.push({ role: "assistant", content: aiResponse });
 
