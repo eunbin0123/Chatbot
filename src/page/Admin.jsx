@@ -12,6 +12,9 @@ import {
   processVectorIdFinish,
   processKnowledgeUpload,
   createBundle,
+  searchSmitheryServers,
+  fetchSmitheryTools,
+  parseSmitheryToolSpec,
 } from "../utils/adminUtils";
 
 const i18n = {
@@ -93,7 +96,7 @@ const i18n = {
     ragDesc: "连接引擎在回答时将参考的知识库。",
     mcpTitle: "基于 MCP 的工具集成",
     mcpDesc: "通过连接内置工具或自定义 API 端点来扩展代理功能。",
-    promptTitle: "代理行为准则 (提示)",
+    promptTitle: "代理行动准则 (提示)",
     promptDesc: "设置代理必须遵循的核心规则或角色。",
     layoutTitle: "屏幕布局",
     layoutDesc: "选择代理在您网站上显示的位置。",
@@ -162,7 +165,7 @@ const i18n = {
   },
 };
 
-// ── 눈 아이콘 토글 버튼 컴포넌트 (탭 2에서 사용) ──
+// ── 눈 아이콘 토글 버튼 컴포넌트 ──
 function PasswordInput({ value, onChange, placeholder, style = {} }) {
   const [show, setShow] = useState(false);
   return (
@@ -202,7 +205,6 @@ function PasswordInput({ value, onChange, placeholder, style = {} }) {
           padding: 0,
           transition: "color 0.2s",
         }}
-        title={show ? "숨기기" : "보기"}
       >
         {show ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -220,12 +222,24 @@ function PasswordInput({ value, onChange, placeholder, style = {} }) {
   );
 }
 
+// ── 스피너 SVG ──
+function Spinner({ size = 14 }) {
+  return (
+    <svg className="spinner" width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+      <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+    </svg>
+  );
+}
+
 export default function Admin({ chatbotType }) {
   const [uiLang, setUiLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("agent");
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // ── 챗봇 자동 실행 ──
   useEffect(() => {
     const timer = setTimeout(() => {
       const toggleButton = document.querySelector(".fw-toggle");
@@ -256,16 +270,11 @@ export default function Admin({ chatbotType }) {
   const [selectedAgentId, setSelectedAgentId] = useState(1);
   const [uiCharacter, setUiCharacter] = useState("chanu");
 
-  // ── AI 연결 탭 전용 상태 ──
+  // ── AI 연결 탭 ──
   const [selectedStage, setSelectedStage] = useState("analysis");
   const [stageStatus, setStageStatus] = useState({
-    analysis: true,
-    rag: true,
-    mcp: true,
-    prompt: true,
-    response: true,
+    analysis: true, rag: true, mcp: true, prompt: true, response: true,
   });
-
   const [stageEngines, setStageEngines] = useState({
     analysis: "OpenAI GPT-5.3",
     rag: "OpenAI GPT-5.3",
@@ -292,7 +301,6 @@ export default function Admin({ chatbotType }) {
   // ── RAG ──
   const [uiRagType, setUiRagType] = useState("none");
   const [nativeRagId, setNativeRagId] = useState("");
-  const [externalRagUrl, setExternalRagUrl] = useState("");
   const [ragInput, setRagInput] = useState("");
   const [ragFiles, setRagFiles] = useState([]);
   const [ragTexts, setRagTexts] = useState([]);
@@ -311,7 +319,7 @@ export default function Admin({ chatbotType }) {
     llamon: { nativeRagId: "", autoAssistantId: "", savedKnowledge: [] },
   });
 
-  // ── MCP ──
+  // ── MCP 기본 state ──
   const [mcpDirectories, setMcpDirectories] = useState([]);
   const [mcpList, setMcpList] = useState([]);
   const [isInitialMcpLoaded, setIsInitialMcpLoaded] = useState(false);
@@ -321,11 +329,21 @@ export default function Admin({ chatbotType }) {
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [targetDirId, setTargetDirId] = useState(null);
   const [targetItemId, setTargetItemId] = useState(null);
-  const [newApiName, setNewApiName] = useState("");
-  const [newApiUrl, setNewApiUrl] = useState("");
-  const [newApiMethod, setNewApiMethod] = useState("GET");
-  const [newApiKey, setNewApiKey] = useState("");
-  const [newApiParams, setNewApiParams] = useState([{ key: "", type: "String", desc: "" }]);
+
+  // ── Smithery 모달 state ──
+  const [smitherySearchQuery, setSmitherySearchQuery] = useState("");
+  const [smitherySearchResults, setSmitherySearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [smitheryToolName, setSmitheryToolName] = useState("");
+  const [smitheryToolSpec, setSmitheryToolSpec] = useState(null);
+  const [isFetchingSpec, setIsFetchingSpec] = useState(false);
+  const [smitheryFetchError, setSmitheryFetchError] = useState("");
+  const [selectedSmitheryServer, setSelectedSmitheryServer] = useState(null);
+  const [serverToolList, setServerToolList] = useState([]);
+  const [selectedToolName, setSelectedToolName] = useState("");
+  const [smitheryApiKey, setSmitheryApiKey] = useState("");
+  // 서버에서 인증 에러(401, 402, 403 등)를 뱉었을 때 키 입력창을 띄우기 위한 상태
+  const [smitheryNeedsApiKey, setSmitheryNeedsApiKey] = useState(false);
 
   // ── 프롬프트 ──
   const [selectedTags, setSelectedTags] = useState([
@@ -363,16 +381,15 @@ export default function Admin({ chatbotType }) {
       try {
         const local = localStorage.getItem("klever_mcp_directories");
         if (local) savedDirs = JSON.parse(local);
-      } catch (e) {
-        console.error("MCP Directory 파싱 오류:", e);
-      }
+      } catch (e) { console.error("MCP Directory 파싱 오류:", e); }
       if (savedDirs.length === 0) {
         savedDirs = [{ id: "dir_default", name: "연동된 API", description: "서버에서 불러온 도구들", active: true, isOpen: true, items: [] }];
       }
       mcpList.forEach((mcp) => {
         const mappedItem = {
-          id: mcp.id, name: mcp.name, url: mcp.desc, method: mcp.method || "GET",
+          id: mcp.id, name: mcp.name, url: mcp.desc, method: mcp.method || "POST",
           active: mcp.active, apiKey: mcp.apiKey || "", params: mcp.parameters || [],
+          type: mcp.type || "smithery",
         };
         let found = false;
         for (let dir of savedDirs) {
@@ -389,13 +406,14 @@ export default function Admin({ chatbotType }) {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setIsModalOpen(false); setIsExitModalOpen(false); setIsNewKeyModalOpen(false);
-        setIsAddDirModalOpen(false); setIsAddItemModalOpen(false); setAlertMessage("");
+        setIsAddDirModalOpen(false); setAlertMessage("");
         setDeleteTargetId(null); setReissueTargetId(null);
+        if (isAddItemModalOpen) closeSmitheryModal();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isAddItemModalOpen]);
 
   // ── 에이전트 전환 시 엔진/키 초기화 ──
   useEffect(() => {
@@ -404,7 +422,6 @@ export default function Admin({ chatbotType }) {
       setUiCharacter(agent.character || "chanu");
       const engines = agent.engines || { analysis: "gpt", rag: "gpt", response: "gpt" };
       const keys = agent.keys || { analysis: "", response: "", rag: { gpt: "", gemini: "", llamon: "" } };
-
       setStageEngines((prev) => ({
         ...prev,
         analysis: getFullEngineName(engines.analysis),
@@ -414,23 +431,17 @@ export default function Admin({ chatbotType }) {
         responseKey: keys.response || "",
         ragKeys: keys.rag || { gpt: "", gemini: "", llamon: "" },
       }));
-
       const loadedAssistantId = agent.assistantId || "";
       if (loadedAssistantId) {
-        setUiRagType("native");
-        setAutoAssistantId(loadedAssistantId);
-        setNativeRagId(loadedAssistantId);
+        setUiRagType("native"); setAutoAssistantId(loadedAssistantId); setNativeRagId(loadedAssistantId);
       } else {
-        setUiRagType("none");
-        setAutoAssistantId("");
-        setNativeRagId("");
+        setUiRagType("none"); setAutoAssistantId(""); setNativeRagId("");
       }
-
       setPromptMode(agent.promptMode || "tag");
       setSelectedTags(agent.promptTags || ["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
       setCustomTags(agent.customTags || []);
       setManualPrompt(agent.promptManual || "");
-setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prompt: true, response: true });
+      setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prompt: true, response: true });
 
       const isAgentSwitch = prevAgentIdRef.current !== selectedAgentId;
       prevAgentIdRef.current = selectedAgentId;
@@ -445,17 +456,10 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     }
   }, [selectedAgentId, apiKeys]);
 
-  // ── Vector ID 검증 ──
   const handleVectorIdFinish = async () => {
     setIsUploading(true);
     const currentLlm = getMappedLlmType(stageEngines.rag);
-    
-    // ✅ 제미나이 등 GPT가 아닌 엔진은 ID 검증 과정 자체를 패스하도록 방어
-    if (currentLlm !== "gpt") {
-      setIsUploading(false);
-      return;
-    }
-
+    if (currentLlm !== "gpt") { setIsUploading(false); return; }
     const result = await processVectorIdFinish(nativeRagId, currentLlm, "native", lastVerifiedVsId);
     if (!result.skip) {
       if (result.success) { setAutoAssistantId(result.assistantId); setLastVerifiedVsId(result.currentId); }
@@ -464,7 +468,6 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     setIsUploading(false);
   };
 
-  // ── 파일/텍스트 핸들러 ──
   const handleFileAttach = () => fileInputRef.current?.click();
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -511,9 +514,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             const doc = new DOMParser().parseFromString(data.contents, "text/html");
             doc.querySelectorAll("script, style, noscript, iframe, nav, footer").forEach((el) => el.remove());
             return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
-          } catch {
-            return `[URL 스크랩 실패: ${url}]`;
-          }
+          } catch { return `[URL 스크랩 실패: ${url}]`; }
         };
         for (const item of ragTexts) {
           if (item.type === "url") {
@@ -537,27 +538,15 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
           const textFile = new File([textBlob], `scraped_knowledge_${Date.now()}.txt`, { type: "text/plain" });
           combinedFiles.push({ id: `txt_${Date.now()}`, name: "웹사이트_및_텍스트_학습데이터.txt", fileObject: textFile });
         }
-        
         const currentLlm = getMappedLlmType(stageEngines.rag);
-        
-        // ✅ 가장 중요한 수정: adminUtils.js의 GPT 전용 예외처리('gpt에 쓰는 vector storeid...' 에러)를 우회하기 위해
-        // 제미나이일 때는 빈 값이 아닌 임의의 더미 ID 텍스트를 담아 보냅니다.
         const safeRagId = currentLlm === "gpt" ? nativeRagId : "gemini_bypass_id";
-
         const assistantIdRes = await processKnowledgeUpload(combinedFiles, currentLlm, "native", safeRagId);
-        
-        // GPT일 때만 정상적으로 발급/반환된 ID를 자동 세팅합니다.
-        if (assistantIdRes && currentLlm === "gpt") {
-          setAutoAssistantId(assistantIdRes);
-        }
-        
+        if (assistantIdRes && currentLlm === "gpt") setAutoAssistantId(assistantIdRes);
         const newBundle = createBundle(ragInput, ragTexts, ragFiles);
         setSavedKnowledge([newBundle, ...savedKnowledge]);
         setSelectedKnowledgeIds([...selectedKnowledgeIds, newBundle.id]);
-        
         const serverName = currentLlm === "gpt" ? "OpenAI Vector Store" : "Gemini 서버";
         setAlertMessage(`데이터가 성공적으로 ${serverName}에 업로드 되었습니다.\n(URL 스크랩 완료)`);
-        
         setRagInput(""); setRagFiles([]); setRagTexts([]);
         if (!isKnowledgeListOpen) setIsKnowledgeListOpen(true);
       } catch (error) {
@@ -593,8 +582,15 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     newDirs.forEach((dir) => {
       dir.items.forEach((item) => {
         flat.push({
-          id: item.id, name: item.name, desc: item.url, type: "custom",
-          method: item.method, active: item.active, apiKey: item.apiKey, parameters: item.params,
+          id: item.id,
+          name: item.name,
+          desc: item.type === "smithery" ? item.name : item.url,
+          type: item.type || "smithery",
+          method: item.method || "POST",
+          active: item.active,
+          apiKey: item.apiKey || "",
+          parameters: item.params || [],
+          qualifiedName: item.qualifiedName || "",
         });
       });
     });
@@ -630,40 +626,252 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     updateMcpData([...mcpDirectories, { id: `dir_${Date.now()}`, name: dirName, description: newDirDesc.trim(), active: false, isOpen: true, items: [] }]);
     setIsAddDirModalOpen(false); setNewDirName(""); setNewDirDesc("");
   };
-  const handleAddParam = () => setNewApiParams((prev) => [...prev, { key: "", type: "String", desc: "" }]);
-  const updateParam = (index, field, value) =>
-    setNewApiParams((prev) => { const updated = [...prev]; updated[index] = { ...updated[index], [field]: value }; return updated; });
-  const removeParam = (index) => { if (newApiParams.length > 1) setNewApiParams((prev) => prev.filter((_, i) => i !== index)); };
-  const handleAddApiItem = () => {
-    if (!targetDirId) return;
-    let updatedDirs = [...mcpDirectories];
-    if (targetItemId) {
-      updatedDirs = updatedDirs.map((dir) => {
-        if (dir.id !== targetDirId) return dir;
-        return {
-          ...dir,
-          items: dir.items.map((item) => item.id === targetItemId
-            ? { ...item, name: newApiName.trim() || "이름 없음", url: newApiUrl, method: newApiMethod, apiKey: newApiKey, params: newApiParams.filter((p) => p.key.trim() !== "") }
-            : item
-          ),
-        };
-      });
+
+  // ════════════════════════════════════════════════════
+  // Smithery 모달 헬퍼들
+  // ════════════════════════════════════════════════════
+
+  const openSmitheryModal = ({ dirId, item = null }) => {
+    setTargetDirId(dirId);
+    setTargetItemId(item ? item.id : null);
+    if (item) {
+      setSmitheryToolName(item.name);
+      setSmitheryToolSpec({ description: item.description || "", parameters: item.params || [] });
+      setSmitheryApiKey(item.apiKey || "");
     } else {
-      const newItem = {
-        id: `item_${Date.now()}`, name: newApiName.trim() || "새 항목", url: newApiUrl,
-        method: newApiMethod, apiKey: newApiKey, params: newApiParams.filter((p) => p.key.trim() !== ""), active: true,
-      };
-      updatedDirs = updatedDirs.map((dir) => {
-        if (dir.id !== targetDirId) return dir;
-        const newItems = [...dir.items, newItem];
-        return { ...dir, items: newItems, active: true };
-      });
+      setSmitheryToolName("");
+      setSmitheryToolSpec(null);
+      setSmitheryApiKey("");
     }
-    updateMcpData(updatedDirs);
+    setSmitheryNeedsApiKey(false);
+    setSmitherySearchQuery("");
+    setSmitherySearchResults([]);
+    setSelectedSmitheryServer(null);
+    setServerToolList([]);
+    setSelectedToolName("");
+    setSmitheryFetchError("");
+    setIsAddItemModalOpen(true);
+  };
+
+  const closeSmitheryModal = () => {
     setIsAddItemModalOpen(false);
-    setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey("");
-    setNewApiParams([{ key: "", type: "String", desc: "" }]);
-    setTargetDirId(null); setTargetItemId(null);
+    setSmitheryToolName("");
+    setSmitheryToolSpec(null);
+    setSmitheryFetchError("");
+    setTargetDirId(null);
+    setTargetItemId(null);
+    setSmitherySearchQuery("");
+    setSmitherySearchResults([]);
+    setSelectedSmitheryServer(null);
+    setServerToolList([]);
+    setSelectedToolName("");
+    setSmitheryApiKey("");
+    setSmitheryNeedsApiKey(false);
+  };
+
+  // ✅ Smithery 서버 검색 (무한 로딩 및 매핑 크래시 방지 적용)
+  const handleSmitherySearch = async () => {
+    if (!smitherySearchQuery.trim()) return;
+    setIsSearching(true);
+    setSmitherySearchResults([]);
+    setSmitheryFetchError("");
+    setSelectedSmitheryServer(null);
+    setServerToolList([]);
+    setSelectedToolName("");
+    setSmitheryToolSpec(null);
+    setSmitheryNeedsApiKey(false);
+
+    try {
+      // 10초 타임아웃 방어
+      const servers = await Promise.race([
+        searchSmitheryServers(smitherySearchQuery, 10),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
+      ]);
+
+      // 배열 응답이 아니면 강제로 에러를 발생시켜 React 다운 방지
+      if (!Array.isArray(servers)) {
+        throw new Error(servers?.error || servers?.message || "올바른 형태의 검색 응답이 아닙니다.");
+      }
+
+      setSmitherySearchResults(servers);
+      if (servers.length === 0) {
+        setSmitheryFetchError(`"${smitherySearchQuery}"에 대한 검색 결과가 없습니다.`);
+      }
+    } catch (e) {
+      const msg = e.message === "TIMEOUT" ? "서버 응답이 지연되었습니다." : e.message;
+      setSmitheryFetchError("검색 실패: " + msg);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // ✅ 검색 결과에서 서버 선택 → 우선 키 없이 접근 시도
+  const handleSelectSmitheryServer = async (server) => {
+    setSelectedSmitheryServer(server);
+    setSmitherySearchResults([]);
+    setServerToolList([]);
+    setSelectedToolName("");
+    setSmitheryToolSpec(null);
+    setSmitheryFetchError("");
+    setSmitheryNeedsApiKey(false);
+    setSmitheryApiKey(""); // 새로운 서버 선택 시 입력되어 있던 키 초기화
+    setIsFetchingSpec(true);
+
+    try {
+      // 10초 타임아웃 방어
+      const tools = await Promise.race([
+        fetchSmitheryTools(server.qualifiedName, {}, ""),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
+      ]);
+
+      // 배열이 아니면(에러 객체 반환 등) .map() 크래시를 방지하고 catch로 넘김
+      if (!Array.isArray(tools)) {
+        const errMsg = String(tools?.error || tools?.message || "").toLowerCase();
+        if (errMsg.includes("payment") || errMsg.includes("unauthorized") || errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("api key")) {
+          throw new Error("NEEDS_PAYMENT");
+        }
+        throw new Error(tools?.error || tools?.message || "서버에서 툴 목록 배열을 반환하지 않았습니다.");
+      }
+
+      setServerToolList(tools);
+      if (tools.length === 0) {
+        setSmitheryFetchError("툴 목록이 비어있습니다. 툴 이름을 직접 입력하세요.");
+      }
+    } catch (e) {
+      // 무조건 키 입력창 활성화
+      setSmitheryNeedsApiKey(true);
+      const msg = e.message || "";
+      
+      if (msg === "NEEDS_PAYMENT" || msg.includes("401") || msg.includes("403")) {
+        setSmitheryFetchError("이 서버는 API 키가 필요합니다. 아래에 키를 입력 후 재시도 버튼을 누르세요.");
+      } else if (msg === "TIMEOUT") {
+        setSmitheryFetchError("서버 연결 지연: API 키가 필요하거나 응답이 느립니다. 키를 입력 후 재시도 해보세요.");
+      } else {
+        setSmitheryFetchError(`서버 연결 실패 (${msg}). API 키 인증이 필요할 수 있습니다.`);
+      }
+    } finally {
+      setIsFetchingSpec(false);
+    }
+  };
+
+  // ✅ API 키 입력 후 재시도
+  const handleRetryWithApiKey = async () => {
+    if (!selectedSmitheryServer || !smitheryApiKey.trim()) return;
+    setIsFetchingSpec(true);
+    setSmitheryFetchError("");
+    setServerToolList([]);
+    setSelectedToolName("");
+    setSmitheryToolSpec(null);
+
+    try {
+      const tools = await Promise.race([
+        fetchSmitheryTools(selectedSmitheryServer.qualifiedName, {}, smitheryApiKey.trim()),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
+      ]);
+
+      if (!Array.isArray(tools)) {
+        const errMsg = String(tools?.error || tools?.message || "").toLowerCase();
+        if (errMsg.includes("payment") || errMsg.includes("unauthorized") || errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("api key")) {
+          throw new Error("NEEDS_PAYMENT");
+        }
+        throw new Error(tools?.error || tools?.message || "서버에서 툴 목록 배열을 반환하지 않았습니다.");
+      }
+
+      // 성공 시 입력창 숨김 처리
+      setSmitheryNeedsApiKey(false);
+      setServerToolList(tools);
+      if (tools.length === 0) {
+        setSmitheryFetchError("툴 목록이 비어있습니다. 툴 이름을 직접 입력하세요.");
+      }
+    } catch (e) {
+      // 실패 시 입력창 다시 유지
+      setSmitheryNeedsApiKey(true);
+      const msg = e.message || "";
+      if (msg === "NEEDS_PAYMENT" || msg.includes("401") || msg.includes("403")) {
+        setSmitheryFetchError("API 키가 올바르지 않거나 권한이 없습니다. 다시 확인해주세요.");
+      } else if (msg === "TIMEOUT") {
+        setSmitheryFetchError("서버 응답 지연: 다시 시도해주세요.");
+      } else {
+        setSmitheryFetchError(`재시도 실패: ${msg}`);
+      }
+    } finally {
+      setIsFetchingSpec(false);
+    }
+  };
+
+  // 툴 목록에서 특정 툴 선택 → 스펙 파싱
+  const handleSelectTool = (tool) => {
+    setSelectedToolName(tool.name);
+    setSmitheryToolName(tool.name);
+    const spec = parseSmitheryToolSpec(tool);
+    setSmitheryToolSpec(spec);
+  };
+
+  // 툴 이름으로 직접 스펙 조회 (수동 입력 fallback)
+  const handleFetchSmitherySpec = async (toolName) => {
+    if (!toolName.trim()) return;
+    setIsFetchingSpec(true);
+    setSmitheryFetchError("");
+    setSmitheryToolSpec(null);
+
+    try {
+      const res = await Promise.race([
+        fetch("http://localhost:3000/api/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toolName: "list_tools", args: {} }),
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
+      ]);
+      
+      const data = await res.json();
+      const tools = data?.tools || data?.result?.tools || data?.content?.[0]?.tools || [];
+      const found = tools.find(
+        (t) => t.name === toolName.trim() || t.name.replace(/[^a-zA-Z0-9_]/g, "_") === toolName.trim()
+      );
+
+      if (found) {
+        setSmitheryToolSpec(parseSmitheryToolSpec(found));
+      } else {
+        setSmitheryFetchError(`"${toolName}" 툴을 서버에서 찾을 수 없습니다. 파라미터를 직접 입력하세요.`);
+        setSmitheryToolSpec({ description: "", parameters: [] });
+      }
+    } catch (e) {
+      const msg = e.message === "TIMEOUT" ? "서버 응답 지연" : e.message;
+      setSmitheryFetchError("조회 실패: " + msg + " — 파라미터를 직접 입력하세요.");
+      setSmitheryToolSpec({ description: "", parameters: [] });
+    } finally {
+      setIsFetchingSpec(false);
+    }
+  };
+
+  // 항목 저장
+  const handleAddSmitheryItem = () => {
+    if (!targetDirId || !smitheryToolName.trim()) return;
+    const params = smitheryToolSpec?.parameters || [];
+    const newItem = {
+      id: targetItemId || `item_${Date.now()}`,
+      name: smitheryToolName.trim(),
+      url: "http://localhost:3000/api/execute",
+      method: "POST",
+      apiKey: smitheryApiKey,
+      params,
+      active: true,
+      type: "smithery",
+      description: smitheryToolSpec?.description || "",
+      qualifiedName: selectedSmitheryServer?.qualifiedName || "",
+    };
+
+    const updatedDirs = mcpDirectories.map((dir) => {
+      if (dir.id !== targetDirId) return dir;
+      if (targetItemId) {
+        return { ...dir, items: dir.items.map((item) => item.id === targetItemId ? newItem : item) };
+      }
+      return { ...dir, items: [...dir.items, newItem], active: true };
+    });
+
+    updateMcpData(updatedDirs);
+    closeSmitheryModal();
   };
 
   // ── 프롬프트 태그 ──
@@ -734,52 +942,29 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
   };
   const confirmDeleteKey = () => { setApiKeys((prev) => prev.filter((k) => k.id !== deleteTargetId)); setDeleteTargetId(null); };
 
-  // ── 저장 ──
   const handleSaveClick = () => setIsModalOpen(true);
-
   const confirmSave = () => {
     setIsModalOpen(false);
-
     const currentEngines = {
       analysis: getMappedLlmType(stageEngines.analysis),
       rag: getMappedLlmType(stageEngines.rag),
       response: getMappedLlmType(stageEngines.response),
     };
-    const currentKeys = {
-      analysis: stageEngines.analysisKey,
-      response: stageEngines.responseKey,
-      rag: stageEngines.ragKeys,
-    };
-
+    const currentKeys = { analysis: stageEngines.analysisKey, response: stageEngines.responseKey, rag: stageEngines.ragKeys };
     const updatedApiKeys = apiKeys.map((k) => {
       if (k.id === selectedAgentId) {
-        return { ...k, llm: currentEngines.response, engines: currentEngines, keys: currentKeys,
-      stageStatus: stageStatus, };
+        return { ...k, llm: currentEngines.response, engines: currentEngines, keys: currentKeys, stageStatus };
       }
       return k;
     });
     setApiKeys(updatedApiKeys);
-
     saveConfiguration({
-      apiKeys: updatedApiKeys,
-      selectedAgentId,
-      uiCharacter,
+      apiKeys: updatedApiKeys, selectedAgentId, uiCharacter,
       uiLlmType: currentEngines.response,
       uiRagType: stageStatus.rag ? "native" : "none",
-      autoAssistantId,
-      promptMode,
-      selectedTags,
-      customTags,
-      manualPrompt,
-      layout,
-      autoOff,
-      autoOffSec,
-      digitalHumans,
-      mcpList,
-      setApiKeys,
-      engines: currentEngines,
-      keys: currentKeys,
-      stageStatus,
+      autoAssistantId, promptMode, selectedTags, customTags, manualPrompt,
+      layout, autoOff, autoOffSec, digitalHumans, mcpList, setApiKeys,
+      engines: currentEngines, keys: currentKeys, stageStatus,
     });
     setAlertMessage("성공적으로 적용되었습니다!");
   };
@@ -797,17 +982,10 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     setSelectedTags(["no_politics", "no_religion", "no_social_controversy", "no_profanity", "polite_tone"]);
     setPromptMode("tag"); setCustomTags([]); setCustomTagInput(""); setManualPrompt("");
     setStageEngines({ analysis: "OpenAI GPT-5.3", rag: "OpenAI GPT-5.3", response: "OpenAI GPT-5.3", analysisKey: "", responseKey: "", ragKeys: { gpt: "", gemini: "", llamon: "" }, ragVectorId: "" });
-    setStageStatus({
-      analysis: true,
-      rag: true,
-      mcp: true,
-      prompt: true,
-      response: true,
-    });   
+    setStageStatus({ analysis: true, rag: true, mcp: true, prompt: true, response: true });
     updateMcpData([]);
   };
 
-  // ── 임베드 코드 ──
   const getEmbedCode = () => {
     const totalSeconds = (parseInt(autoOff) || 0) * 60 + (parseInt(autoOffSec) || 0);
     if (codeTab === "react") {
@@ -836,25 +1014,20 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
     { id: "top-left", label: "좌측 상단", boxClass: "tl" },
   ];
 
-  // ── 현재 에이전트에서 파생된 값들 ──
   const savedAgent = apiKeys.find((a) => a.id === selectedAgentId) || apiKeys[0];
   const selectedHuman = digitalHumans.find((h) => h.id === uiCharacter);
   const currentAvatarNum = selectedHuman ? selectedHuman.num : 1;
-
   const resolvedPromptTags = (savedAgent.promptTags || []).map((tagId) => {
     const customMatch = (savedAgent.customTags || []).find((t) => t.id === tagId);
     return customMatch ? customMatch.label : tagId;
   });
-
   const savedEngines = savedAgent.engines || { analysis: "gpt", rag: "gpt", response: "gpt" };
   const savedKeys = savedAgent.keys || { analysis: "", response: "", rag: { gpt: "", gemini: "", llamon: "" } };
-
   const resolvedAnalysisApiKey = savedKeys.analysis || "";
   const resolvedRagApiKey = savedKeys.rag?.[savedEngines.rag] || "";
   const resolvedResponseApiKey = savedKeys.response || "";
-
-  // ── RAG 엔진이 GPT인지 여부 (Vector Store ID 필드 표시 조건) ──
   const isGptRag = stageEngines.rag.includes("GPT");
+  const currentRagEngineType = getMappedLlmType(stageEngines.rag);
 
   const sidebarStages = [
     { id: "analysis", label: "01 사용자 요청 분석", engine: stageStatus.analysis ? stageEngines.analysis : "OFFLINE" },
@@ -878,7 +1051,6 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
   };
 
   const isToggleable = !["analysis", "response"].includes(selectedStage);
-  const currentRagEngineType = getMappedLlmType(stageEngines.rag);
 
   return (
     <div className={`app-root ${!isDarkMode ? "light-mode" : ""}`}>
@@ -891,14 +1063,14 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             <p className="sub-title">{i18n[uiLang]?.subTitle}</p>
           </div>
           <div className="header-buttons">
-            <select className="ui-lang-select" value={uiLang} onChange={(e) => setUiLang(e.target.value)} title="Change UI Language">
+            <select className="ui-lang-select" value={uiLang} onChange={(e) => setUiLang(e.target.value)}>
               <option value="ko">한국어</option>
               <option value="en">English</option>
               <option value="zh">中文</option>
               <option value="vi">Tiếng Việt</option>
               <option value="ja">日本語</option>
             </select>
-            <button className="btn-icon-theme" onClick={() => setIsDarkMode(!isDarkMode)} title={isDarkMode ? "라이트 모드" : "다크 모드"}>
+            <button className="btn-icon-theme" onClick={() => setIsDarkMode(!isDarkMode)}>
               {isDarkMode ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
               ) : (
@@ -907,7 +1079,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             </button>
             <button className="btn-outline" onClick={handleReset}>{i18n[uiLang]?.reset}</button>
             <button className="btn-primary" onClick={handleSaveClick}>{i18n[uiLang]?.save}</button>
-            <button className="btn-icon-back" onClick={() => setIsExitModalOpen(true)} title="나가기">
+            <button className="btn-icon-back" onClick={() => setIsExitModalOpen(true)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
@@ -926,7 +1098,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
 
         <div className="tab-content-area">
 
-          {/* ═══════════════════════════════ TAB 1: 에이전트 설정 ═══════════════════════════════ */}
+          {/* ═══ TAB 1: 에이전트 설정 ═══ */}
           {activeTab === "agent" && (
             <div className="tab-pane fade-in">
               <div className="setting-card">
@@ -945,20 +1117,14 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                           <span className="api-key-name">{keyObj.name}</span>
                           <span className="api-key-date">{keyObj.date}</span>
                         </div>
-                        {/* ✅ 수정: 눈 아이콘 컴포넌트를 제거하고 항상 보이도록 일반 input 적용 */}
-                        <input
-                          type="text"
-                          className="api-key-value"
-                          value={keyObj.value}
-                          readOnly
-                        />
+                        <input type="text" className="api-key-value" value={keyObj.value} readOnly />
                       </div>
                       <div className="api-key-actions">
-                        <button className="btn-icon" onClick={() => handleCopySpecificKey(keyObj.value)} title="키 복사">
+                        <button className="btn-icon" onClick={() => handleCopySpecificKey(keyObj.value)}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                         </button>
                         <button className="btn-text-reissue" onClick={() => handleReissueKey(keyObj.id)}>재발급</button>
-                        <button className="btn-icon danger" onClick={() => handleDeleteKey(keyObj.id)} title="키 삭제">
+                        <button className="btn-icon danger" onClick={() => handleDeleteKey(keyObj.id)}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                       </div>
@@ -1001,7 +1167,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             </div>
           )}
 
-          {/* ═══════════════════════════════ TAB 2: AI 연결 ═══════════════════════════════ */}
+          {/* ═══ TAB 2: AI 연결 ═══ */}
           {activeTab === "system" && (
             <div className="tab-pane fade-in" style={{ padding: "10px" }}>
               <div className="system-pane" style={{ display: "flex", gap: "10px", alignItems: "flex-start", width: "100%", minHeight: "820px" }}>
@@ -1095,8 +1261,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                     <div style={{ borderBottom: "1px solid #2d3748", marginBottom: "24px" }} />
 
                     <div style={{ flex: 1 }}>
-
-                      {/* analysis / response 단계 */}
+                      {/* analysis / response */}
                       {(selectedStage === "analysis" || selectedStage === "response") && (
                         <div className="fade-in">
                           <div className="form-group" style={{ marginBottom: "32px" }}>
@@ -1112,16 +1277,12 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                           </div>
                           <div style={{ border: "1px solid #2d3748", borderRadius: "16px", padding: "24px", backgroundColor: "rgba(0,0,0,0.2)" }}>
                             <label style={{ fontSize: "13px", fontWeight: "700", color: "#a0aec0", display: "block", marginBottom: "12px" }}>API KEY 인증 설정</label>
-                            {/* ✅ 수정: 눈 아이콘 토글 컴포넌트 사용 */}
                             <PasswordInput
                               placeholder="인증키를 입력하세요..."
                               value={selectedStage === "analysis" ? stageEngines.analysisKey : stageEngines.responseKey}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setStageEngines((prev) => ({
-                                  ...prev,
-                                  [selectedStage === "analysis" ? "analysisKey" : "responseKey"]: val,
-                                }));
+                                setStageEngines((prev) => ({ ...prev, [selectedStage === "analysis" ? "analysisKey" : "responseKey"]: val }));
                               }}
                             />
                             <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "8px" }}>* 저장된 키가 있는 경우 자동으로 표시됩니다.</p>
@@ -1129,67 +1290,43 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                         </div>
                       )}
 
-                      {/* RAG 설정 */}
+                      {/* RAG */}
                       {selectedStage === "rag" && (
                         <div className="fade-in">
                           <div className="form-group" style={{ marginBottom: "20px" }}>
                             <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block", fontWeight: "600" }}>RAG 엔진 선택</label>
                             <select className="custom-select" style={{ height: "48px", fontSize: "14px" }}
                               value={stageEngines.rag}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setStageEngines((prev) => ({ ...prev, rag: val }));
-                                // 제미나이 등 GPT가 아닌 것으로 전환 시 기존 GPT ID 초기화
-                                if (!val.includes("GPT")) {
-                                  setNativeRagId("");
-                                }
-                              }}>
+                              onChange={(e) => { const val = e.target.value; setStageEngines((prev) => ({ ...prev, rag: val })); if (!val.includes("GPT")) setNativeRagId(""); }}>
                               <option value="OpenAI GPT-5.3">OpenAI GPT-5.3</option>
                               <option value="Google Gemini 3.1 Pro">Google Gemini 3.1 Pro</option>
                               <option value="LLaMON" disabled>LLaMON</option>
                             </select>
                           </div>
-
                           <div style={{ border: "1px solid #2d3748", borderRadius: "16px", padding: "24px", backgroundColor: "rgba(0,0,0,0.2)" }}>
                             <div className="form-group" style={{ marginBottom: "20px" }}>
-                              <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>
-                                {isGptRag ? "OpenAI" : "Gemini"} API Key 설정
-                              </label>
-                              {/* ✅ 수정: 눈 아이콘 토글 컴포넌트 사용 */}
+                              <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>{isGptRag ? "OpenAI" : "Gemini"} API Key 설정</label>
                               <PasswordInput
                                 placeholder="API 키를 입력하세요..."
                                 value={stageEngines.ragKeys[currentRagEngineType] || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setStageEngines((prev) => ({
-                                    ...prev,
-                                    ragKeys: { ...prev.ragKeys, [currentRagEngineType]: val },
-                                  }));
-                                }}
+                                onChange={(e) => { const val = e.target.value; setStageEngines((prev) => ({ ...prev, ragKeys: { ...prev.ragKeys, [currentRagEngineType]: val } })); }}
                               />
                             </div>
-
-                            {/* ✅ GPT일 때만 Vector Store ID 필드 표시 */}
                             {isGptRag && (
                               <div className="form-group" style={{ marginBottom: "20px" }}>
                                 <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>Vector Store ID (또는 Assistant ID)</label>
-                                <input type="text" className="custom-input" placeholder="vs_abc123def456 (기존 저장소 연결 시)"
+                                <input type="text" className="custom-input" placeholder="vs_abc123def456"
                                   style={{ backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid #4a5568", borderRadius: "12px", color: "#cbd5e0", padding: "10px 14px", fontSize: "13px", outline: "none" }}
-                                  value={nativeRagId}
-                                  onChange={(e) => setNativeRagId(e.target.value)}
-                                  onBlur={handleVectorIdFinish}
-                                  onKeyDown={(e) => { if (e.key === "Enter") handleVectorIdFinish(); }}
-                                />
+                                  value={nativeRagId} onChange={(e) => setNativeRagId(e.target.value)}
+                                  onBlur={handleVectorIdFinish} onKeyDown={(e) => { if (e.key === "Enter") handleVectorIdFinish(); }} />
                               </div>
                             )}
-
                             <div className="form-group" style={{ marginBottom: "24px" }}>
                               <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>신규 데이터 학습 (텍스트, URL, 파일)</label>
                               <div className={`unified-rag-box ${isDragging ? "drag-active" : ""} ${isUploading ? "uploading" : ""}`}
                                 style={{ position: "relative", backgroundColor: "rgba(255,255,255,0.02)", border: isDragging ? "2px solid var(--accent)" : "1px dashed #4a5568", borderRadius: "12px", minHeight: "160px", display: "flex", flexDirection: "column", transition: "all 0.2s" }}
                                 onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-                                <textarea className="unified-rag-textarea"
-                                  placeholder="학습할 텍스트나 URL을 붙여넣거나, 문서를 드래그 앤 드롭하세요."
+                                <textarea className="unified-rag-textarea" placeholder="학습할 텍스트나 URL을 붙여넣거나, 문서를 드래그 앤 드롭하세요."
                                   value={ragInput} onChange={(e) => setRagInput(e.target.value)} onKeyDown={handleRagKeyDown} />
                                 <input type="file" ref={fileInputRef} style={{ display: "none" }} accept=".pdf,.txt,.doc,.docx" multiple onChange={handleFileChange} />
                                 {(ragFiles.length > 0 || ragTexts.length > 0) && (
@@ -1220,15 +1357,11 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                                     파일 첨부
                                   </button>
                                   <button className="btn-submit-new" onClick={handleUploadKnowledge} disabled={isUploading || (!ragInput.trim() && ragFiles.length === 0 && ragTexts.length === 0)}>
-                                    {isUploading
-                                      ? <svg className="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
-                                      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                                    }
+                                    {isUploading ? <Spinner /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>}
                                   </button>
                                 </div>
                               </div>
                             </div>
-
                             <div>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: isKnowledgeListOpen ? "8px" : "0" }}>
                                 <button className="btn-icon" onClick={() => setIsKnowledgeListOpen(!isKnowledgeListOpen)} style={{ padding: "6px", margin: "-6px" }}>
@@ -1256,10 +1389,10 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                                           </div>
                                         </div>
                                         <div style={{ display: "flex", gap: "4px" }}>
-                                          <button className="btn-icon" title="불러오기(수정)" onClick={(e) => { e.stopPropagation(); handleEditKnowledge(item); }}>
+                                          <button className="btn-icon" onClick={(e) => { e.stopPropagation(); handleEditKnowledge(item); }}>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                           </button>
-                                          <button className="btn-icon danger" title="삭제" onClick={(e) => { e.stopPropagation(); setSavedKnowledge((prev) => prev.filter((k) => k.id !== item.id)); setSelectedKnowledgeIds((prev) => prev.filter((id) => id !== item.id)); }}>
+                                          <button className="btn-icon danger" onClick={(e) => { e.stopPropagation(); setSavedKnowledge((prev) => prev.filter((k) => k.id !== item.id)); setSelectedKnowledgeIds((prev) => prev.filter((id) => id !== item.id)); }}>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                           </button>
                                         </div>
@@ -1277,7 +1410,10 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                       {selectedStage === "mcp" && (
                         <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px" }}>
-                            <h2 style={{ fontSize: "16px", fontWeight: "800", color: "#fff", margin: 0 }}>디렉토리 목록</h2>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <h2 style={{ fontSize: "16px", fontWeight: "800", color: "#fff", margin: 0 }}>디렉토리 목록</h2>
+                              <span style={{ fontSize: "9px", fontWeight: "800", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.4)", padding: "2px 7px", borderRadius: "5px", backgroundColor: "rgba(0,198,255,0.08)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Smithery Connected</span>
+                            </div>
                             <button className="btn-klever-sync" style={{ padding: "10px 24px", borderRadius: "12px", fontSize: "13px" }} onClick={() => setIsAddDirModalOpen(true)}>+ 디렉토리 생성</button>
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
@@ -1308,13 +1444,20 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                                       {dir.items.map((item) => (
                                         <div key={item.id} className="glass-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)", backgroundColor: "rgba(255,255,255,0.01)" }}>
                                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                                            <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600" }}>{item.name}</span>
-                                            {item.url && <span style={{ color: "var(--text-muted)", fontSize: "10px", fontFamily: "var(--f-mono)", opacity: 0.7 }}>{item.method || "GET"} {item.url.substring(0, 28)}...</span>}
+                                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                              <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600" }}>{item.name}</span>
+                                              <span style={{ fontSize: "8px", fontWeight: "700", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.3)", padding: "1px 5px", borderRadius: "4px", backgroundColor: "rgba(0,198,255,0.06)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Smithery</span>
+                                            </div>
+                                            <span style={{ color: "var(--text-muted)", fontSize: "10px", fontFamily: "var(--f-mono)", opacity: 0.7 }}>
+                                              POST · {(item.params || []).length} params
+                                              {item.qualifiedName && <span style={{ marginLeft: "6px", color: "#4a5568" }}>· {item.qualifiedName}</span>}
+                                            </span>
                                           </div>
                                           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                             <button style={{ padding: "5px 10px", fontSize: "11px", color: "var(--text-secondary)", border: "1px solid var(--border-glass)", borderRadius: "6px", background: "rgba(255,255,255,0.03)", cursor: "pointer" }}
-                                              onClick={() => { setTargetDirId(dir.id); setTargetItemId(item.id); setNewApiName(item.name); setNewApiUrl(item.url || ""); setNewApiMethod(item.method || "GET"); setNewApiKey(item.apiKey || ""); if (item.params) setNewApiParams(item.params.length > 0 ? item.params : [{ key: "", type: "String", desc: "" }]); setIsAddItemModalOpen(true); }}>수정</button>
-                                            <button style={{ padding: "5px 10px", fontSize: "11px", color: "#fca5a5", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "6px", background: "rgba(248,113,113,0.05)", cursor: "pointer" }} onClick={() => handleDeleteApiItem(dir.id, item.id)}>삭제</button>
+                                              onClick={() => openSmitheryModal({ dirId: dir.id, item })}>수정</button>
+                                            <button style={{ padding: "5px 10px", fontSize: "11px", color: "#fca5a5", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "6px", background: "rgba(248,113,113,0.05)", cursor: "pointer" }}
+                                              onClick={() => handleDeleteApiItem(dir.id, item.id)}>삭제</button>
                                             <div onClick={(e) => toggleItemActive(dir.id, item.id, e)} style={{ width: "32px", height: "16px", backgroundColor: item.active ? "var(--accent)" : "#2d3748", borderRadius: "16px", position: "relative", cursor: "pointer" }}>
                                               <div style={{ width: "10px", height: "10px", backgroundColor: "#fff", borderRadius: "50%", position: "absolute", left: item.active ? "20px" : "2px", top: "3px", transition: "0.2s" }} />
                                             </div>
@@ -1323,7 +1466,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                                       ))}
                                     </div>
                                     <button style={{ padding: "12px", border: "1px solid #4a5568", borderRadius: "10px", fontSize: "12px", color: "#718096", background: "rgba(255,255,255,0.02)", cursor: "pointer", width: "100%", fontWeight: "600" }}
-                                      onClick={() => { setTargetDirId(dir.id); setTargetItemId(null); setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey(""); setNewApiParams([{ key: "", type: "String", desc: "" }]); setIsAddItemModalOpen(true); }}>+ 새 항목 추가</button>
+                                      onClick={() => openSmitheryModal({ dirId: dir.id })}>+ Smithery 툴 추가</button>
                                   </div>
                                 )}
                               </div>
@@ -1334,7 +1477,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                         </div>
                       )}
 
-                      {/* 프롬프팅 설정 */}
+                      {/* 프롬프팅 */}
                       {selectedStage === "prompt" && (
                         <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
                           <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -1395,7 +1538,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             </div>
           )}
 
-          {/* ═══════════════════════════════ TAB 3: 동작 설정 ═══════════════════════════════ */}
+          {/* ═══ TAB 3: 동작 설정 ═══ */}
           {activeTab === "widget" && (
             <div className="tab-pane fade-in">
               <div className="setting-card">
@@ -1410,7 +1553,6 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                   ))}
                 </div>
               </div>
-
               <div className="setting-card">
                 <h3 className="card-title">{i18n[uiLang]?.timeTitle}</h3>
                 <div className="form-group mt-2" style={{ maxWidth: "350px" }}>
@@ -1421,7 +1563,6 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
                   </div>
                 </div>
               </div>
-
               <div className="setting-card">
                 <h3 className="card-title">{i18n[uiLang]?.codeTitle}</h3>
                 <p className="card-desc">{i18n[uiLang]?.codeDesc}</p>
@@ -1439,7 +1580,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
         </div>
       </div>
 
-      {/* ── 챗봇 렌더링 영역 ── */}
+      {/* 챗봇 */}
       <div id="chatbot-wrapper">
         {chatbotType === "sdk" ? (
           <DigitalHuman apiKey={import.meta.env.VITE_KLEVER_API_KEY} layout={layout} />
@@ -1459,6 +1600,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             promptMode={savedAgent.promptMode || "tag"}
             promptTags={resolvedPromptTags}
             promptManual={savedAgent.promptManual || ""}
+            mcpList={mcpList}
           />
         )}
       </div>
@@ -1471,7 +1613,7 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
             <p className="modal-desc" style={{ marginBottom: "24px" }}>MCP 도구들을 분류할 새로운 그룹을 만듭니다.</p>
             <div className="form-group" style={{ marginBottom: "16px" }}>
               <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>디렉토리명</label>
-              <input type="text" className="custom-input" value={newDirName} onChange={(e) => setNewDirName(e.target.value)} placeholder="예: 외부 연동 API, 팀 자료 등" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleAddDirectory(); }} />
+              <input type="text" className="custom-input" value={newDirName} onChange={(e) => setNewDirName(e.target.value)} placeholder="예: 외부 연동 API" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleAddDirectory(); }} />
             </div>
             <div className="form-group" style={{ marginBottom: "32px" }}>
               <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>설명 (선택)</label>
@@ -1485,140 +1627,299 @@ setStageStatus(agent.stageStatus || { analysis: true, rag: true, mcp: true, prom
         </div>
       )}
 
-      {/* ════ 모달: 항목 추가 ════ */}
+      {/* ════ 모달: Smithery 툴 추가/수정 ════ */}
       {isAddItemModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: "600px", textAlign: "left", padding: "28px" }}>
-            <h2 className="modal-title" style={{ marginBottom: "8px", fontSize: "20px" }}>{targetItemId ? "항목 수정" : "새 항목 추가"}</h2>
-            <p className="modal-desc" style={{ marginBottom: "24px" }}>연결할 외부 API 엔드포인트와 파라미터를 상세히 정의하십시오.</p>
-            <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>API 명칭</label>
-                <input type="text" className="custom-input" value={newApiName} onChange={(e) => setNewApiName(e.target.value)} placeholder="예: 날씨 데이터" />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>Method</label>
-                <select className="custom-select" value={newApiMethod} onChange={(e) => setNewApiMethod(e.target.value)}>
-                  <option value="GET">GET (데이터 조회)</option>
-                  <option value="POST">POST (데이터 생성)</option>
-                </select>
-              </div>
+          <div className="modal-box" style={{ maxWidth: "580px", textAlign: "left", padding: "28px", maxHeight: "90vh", overflowY: "auto" }}>
+
+            {/* 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+              <span style={{ fontSize: "10px", fontWeight: "800", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.4)", padding: "2px 8px", borderRadius: "6px", backgroundColor: "rgba(0,198,255,0.08)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Smithery</span>
+              <h2 className="modal-title" style={{ margin: 0, fontSize: "20px" }}>{targetItemId ? "툴 수정" : "MCP 툴 추가"}</h2>
             </div>
-            <div className="form-group" style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>엔드포인트 URL</label>
-              <input type="text" className="custom-input" value={newApiUrl} onChange={(e) => setNewApiUrl(e.target.value)} placeholder="https://api.example.com/v1/data" />
-            </div>
-            <div className="form-group" style={{ marginBottom: "24px" }}>
-              <label style={{ fontWeight: "600", marginBottom: "8px", display: "block" }}>Auth Token (API 키 - 선택사항)</label>
-              <input type="text" className="custom-input" value={newApiKey} onChange={(e) => setNewApiKey(e.target.value)} placeholder="Bearer token..." />
-            </div>
-            <div style={{ border: "1px solid #4a5568", borderRadius: "12px", padding: "16px", backgroundColor: "rgba(0,0,0,0.15)", marginBottom: "32px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <label style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: "700", margin: 0 }}>파라미터 (Parameters)</label>
-                <button onClick={handleAddParam} style={{ background: "transparent", color: "#00c6ff", border: "1px solid #00c6ff", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" }}>+ 추가</button>
+            <p className="modal-desc" style={{ marginBottom: "20px" }}>Smithery 레지스트리에서 MCP 서버를 검색하거나 툴 이름을 직접 입력하세요.</p>
+
+            {/* ── STEP 1: Smithery 검색 ── */}
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "12px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>
+                Step 1 · Smithery 서버 검색
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  className="custom-input"
+                  placeholder="예: github, notion, slack, filesystem..."
+                  value={smitherySearchQuery}
+                  onChange={(e) => setSmitherySearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSmitherySearch(); }}
+                  style={{ flex: 1 }}
+                  autoFocus
+                />
+                <button
+                  className="btn-klever-sync"
+                  style={{ padding: "0 20px", borderRadius: "10px", whiteSpace: "nowrap", minWidth: "80px" }}
+                  onClick={handleSmitherySearch}
+                  disabled={isSearching || !smitherySearchQuery.trim()}
+                >
+                  {isSearching ? <Spinner /> : "검색"}
+                </button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "150px", overflowY: "auto", paddingRight: "4px" }}>
-                {newApiParams.map((param, idx) => (
-                  <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <input type="text" placeholder="Key (예: city)" className="custom-input" style={{ flex: 1, padding: "8px" }} value={param.key} onChange={(e) => updateParam(idx, "key", e.target.value)} />
-                    <select className="custom-select" style={{ width: "90px", padding: "8px", backgroundPosition: "right 5px center" }} value={param.type} onChange={(e) => updateParam(idx, "type", e.target.value)}>
-                      <option>String</option><option>Number</option><option>Boolean</option>
-                    </select>
-                    <input type="text" placeholder="설명 (예: 도시 이름)" className="custom-input" style={{ flex: 1.5, padding: "8px" }} value={param.desc} onChange={(e) => updateParam(idx, "desc", e.target.value)} />
-                    {newApiParams.length > 1 && (
-                      <button onClick={() => removeParam(idx)} style={{ background: "none", border: "none", color: "#e53e3e", cursor: "pointer", padding: "4px" }}>✕</button>
-                    )}
+
+              {/* 검색 결과 드롭다운 */}
+              {smitherySearchResults.length > 0 && (
+                <div style={{ marginTop: "8px", border: "1px solid rgba(0,198,255,0.3)", borderRadius: "12px", overflow: "hidden", backgroundColor: "#0b0d10", maxHeight: "220px", overflowY: "auto" }}>
+                  {smitherySearchResults.map((server, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectSmitheryServer(server)}
+                      style={{ padding: "12px 16px", cursor: "pointer", borderBottom: idx < smitherySearchResults.length - 1 ? "1px solid #1a1d24" : "none", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(0,198,255,0.06)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                          <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600" }}>{server.displayName || server.qualifiedName}</span>
+                          <span style={{ color: "#718096", fontSize: "11px" }}>{server.qualifiedName}</span>
+                          {server.description && (
+                            <span style={{ color: "#4a5568", fontSize: "11px", marginTop: "2px" }}>{server.description.slice(0, 70)}{server.description.length > 70 ? "..." : ""}</span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: "9px", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.3)", padding: "2px 8px", borderRadius: "4px", whiteSpace: "nowrap", flexShrink: 0, marginLeft: "12px" }}>선택</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 선택된 서버 표시 및 API 키 입력창 */}
+              {selectedSmitheryServer && (
+                <div style={{ marginTop: "12px" }}>
+                  <div style={{ padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(0,198,255,0.06)", border: "1px solid rgba(0,198,255,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <span style={{ color: "#00c6ff", fontSize: "13px", fontWeight: "600" }}>{selectedSmitheryServer.displayName || selectedSmitheryServer.qualifiedName}</span>
+                      <span style={{ color: "#4a5568", fontSize: "11px", marginLeft: "8px" }}>{selectedSmitheryServer.qualifiedName}</span>
+                    </div>
+                    <button onClick={() => { setSelectedSmitheryServer(null); setServerToolList([]); setSelectedToolName(""); setSmitheryToolSpec(null); setSmitheryNeedsApiKey(false); setSmitheryFetchError(""); }}
+                      style={{ background: "none", border: "none", color: "#718096", cursor: "pointer", fontSize: "16px", padding: "2px 6px" }}>✕</button>
                   </div>
-                ))}
+
+                  {/* 서버 연결 실패 (API 키 필요) 시에만 나타나는 강제 입력창 */}
+                  {smitheryNeedsApiKey && (
+                    <div style={{ marginTop: "12px", padding: "16px", backgroundColor: "rgba(248,113,113,0.05)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px" }}>
+                      <label style={{ fontSize: "12px", fontWeight: "700", color: "#fca5a5", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>
+                        ⚠️ API Key 필요
+                      </label>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <PasswordInput
+                          placeholder="서버 연결을 위한 API 키를 입력하세요..."
+                          value={smitheryApiKey}
+                          onChange={(e) => setSmitheryApiKey(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          className="btn-klever-sync"
+                          style={{ padding: "0 16px", borderRadius: "10px", whiteSpace: "nowrap", minWidth: "80px", opacity: smitheryApiKey.trim() && !isFetchingSpec ? 1 : 0.4, cursor: smitheryApiKey.trim() && !isFetchingSpec ? "pointer" : "not-allowed" }}
+                          onClick={handleRetryWithApiKey}
+                          disabled={!smitheryApiKey.trim() || isFetchingSpec}
+                        >
+                          {isFetchingSpec ? <Spinner /> : "재시도"}
+                        </button>
+                      </div>
+                      <p style={{ fontSize: "11px", color: "#fca5a5", marginTop: "8px", lineHeight: "1.5" }}>
+                        * 이 서버는 인증키 또는 유료 API 키가 필요합니다. 키 입력 후 재시도 버튼을 눌러주세요.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── STEP 2: 툴 목록에서 선택 ── */}
+            {isFetchingSpec && !smitheryToolSpec && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px", color: "#718096", fontSize: "13px" }}>
+                <Spinner size={16} /> 툴 목록을 불러오는 중...
+              </div>
+            )}
+
+            {serverToolList.length > 0 && (
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>
+                  Step 2 · 툴 선택 ({serverToolList.length}개)
+                </label>
+                <div style={{ border: "1px solid #2d3748", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto" }}>
+                  {serverToolList.map((tool, idx) => {
+                    const isSelected = selectedToolName === tool.name;
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => handleSelectTool(tool)}
+                        style={{ padding: "10px 14px", cursor: "pointer", borderBottom: idx < serverToolList.length - 1 ? "1px solid #1a1d24" : "none", backgroundColor: isSelected ? "rgba(0,198,255,0.08)" : "transparent", transition: "background 0.15s", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"; }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <span style={{ color: isSelected ? "#00c6ff" : "#e2e8f0", fontSize: "13px", fontWeight: isSelected ? "700" : "500", fontFamily: "var(--f-mono)" }}>{tool.name}</span>
+                          {tool.description && <span style={{ color: "#718096", fontSize: "11px" }}>{tool.description.slice(0, 60)}{tool.description.length > 60 ? "..." : ""}</span>}
+                        </div>
+                        {isSelected && <span style={{ color: "#00c6ff", fontSize: "16px" }}>✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 구분선 */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "16px 0" }}>
+              <div style={{ flex: 1, height: "1px", backgroundColor: "#2d3748" }} />
+              <span style={{ color: "#4a5568", fontSize: "11px", whiteSpace: "nowrap" }}>또는 툴 이름 직접 입력</span>
+              <div style={{ flex: 1, height: "1px", backgroundColor: "#2d3748" }} />
+            </div>
+
+            {/* ── STEP 3: 툴 이름 직접 입력 (수동) ── */}
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "12px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>Tool Name</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  className="custom-input"
+                  placeholder="예: get_organization_details"
+                  value={smitheryToolName}
+                  onChange={(e) => { setSmitheryToolName(e.target.value); if (!serverToolList.length) { setSmitheryToolSpec(null); setSmitheryFetchError(""); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleFetchSmitherySpec(smitheryToolName); }}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="btn-klever-sync"
+                  style={{ padding: "0 20px", borderRadius: "10px", whiteSpace: "nowrap", minWidth: "90px" }}
+                  onClick={() => handleFetchSmitherySpec(smitheryToolName)}
+                  disabled={isFetchingSpec || !smitheryToolName.trim()}
+                >
+                  {isFetchingSpec ? <Spinner /> : "스펙 조회"}
+                </button>
               </div>
             </div>
+
+            {/* 에러 메시지 */}
+            {smitheryFetchError && (
+              <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", backgroundColor: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", color: "#fca5a5", fontSize: "12px", lineHeight: "1.5" }}>
+                ⚠️ {smitheryFetchError}
+              </div>
+            )}
+
+            {/* 스펙 프리뷰 */}
+            {smitheryToolSpec && (
+              <div style={{ border: "1px solid rgba(0,198,255,0.3)", borderRadius: "14px", padding: "20px", backgroundColor: "rgba(0,198,255,0.04)", marginBottom: "24px" }}>
+                {smitheryToolSpec.description && (
+                  <p style={{ fontSize: "12px", color: "#a0aec0", margin: "0 0 16px 0", lineHeight: "1.6", padding: "10px 12px", backgroundColor: "rgba(0,0,0,0.2)", borderRadius: "8px" }}>
+                    {smitheryToolSpec.description}
+                  </p>
+                )}
+                <label style={{ fontSize: "11px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "10px" }}>
+                  Parameters ({smitheryToolSpec.parameters.length})
+                </label>
+                {smitheryToolSpec.parameters.length === 0 ? (
+                  <div style={{ padding: "14px", textAlign: "center", color: "#4a5568", fontSize: "12px", border: "1px dashed #2d3748", borderRadius: "8px" }}>
+                    파라미터 없음 (no-args tool)
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "180px", overflowY: "auto", paddingRight: "2px" }}>
+                    {smitheryToolSpec.parameters.map((param, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <input type="text" className="custom-input" placeholder="Key" style={{ flex: 1, padding: "7px 10px", fontSize: "12px" }} value={param.key}
+                          onChange={(e) => { const updated = [...smitheryToolSpec.parameters]; updated[idx] = { ...updated[idx], key: e.target.value }; setSmitheryToolSpec({ ...smitheryToolSpec, parameters: updated }); }} />
+                        <select className="custom-select" style={{ width: "90px", padding: "7px 8px", fontSize: "11px" }} value={param.type}
+                          onChange={(e) => { const updated = [...smitheryToolSpec.parameters]; updated[idx] = { ...updated[idx], type: e.target.value }; setSmitheryToolSpec({ ...smitheryToolSpec, parameters: updated }); }}>
+                          <option>String</option><option>Number</option><option>Boolean</option>
+                        </select>
+                        <input type="text" className="custom-input" placeholder="설명" style={{ flex: 1.5, padding: "7px 10px", fontSize: "12px" }} value={param.desc}
+                          onChange={(e) => { const updated = [...smitheryToolSpec.parameters]; updated[idx] = { ...updated[idx], desc: e.target.value }; setSmitheryToolSpec({ ...smitheryToolSpec, parameters: updated }); }} />
+                        <button type="button" onClick={() => { const updated = smitheryToolSpec.parameters.filter((_, i) => i !== idx); setSmitheryToolSpec({ ...smitheryToolSpec, parameters: updated }); }}
+                          style={{ background: "none", border: "none", color: "#e53e3e", cursor: "pointer", padding: "4px", flexShrink: 0 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setSmitheryToolSpec({ ...smitheryToolSpec, parameters: [...smitheryToolSpec.parameters, { key: "", type: "String", desc: "" }] })}
+                  style={{ marginTop: "10px", background: "transparent", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.3)", padding: "6px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer", width: "100%", fontWeight: "600" }}>
+                  + 파라미터 직접 추가
+                </button>
+              </div>
+            )}
+
+            {/* 버튼 */}
             <div className="modal-buttons" style={{ gap: "12px", display: "flex" }}>
-              <button className="btn-outline" style={{ flex: 1 }} onClick={() => { setIsAddItemModalOpen(false); setNewApiName(""); setNewApiUrl(""); setNewApiMethod("GET"); setNewApiKey(""); setNewApiParams([{ key: "", type: "String", desc: "" }]); setTargetDirId(null); setTargetItemId(null); }}>취소</button>
-              <button className="btn-primary" style={{ flex: 1.5 }} onClick={handleAddApiItem}>{targetItemId ? "수정완료" : "추가하기"}</button>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={closeSmitheryModal}>취소</button>
+              <button className="btn-primary" style={{ flex: 1.5, opacity: smitheryToolName.trim() ? 1 : 0.4, cursor: smitheryToolName.trim() ? "pointer" : "not-allowed" }}
+                disabled={!smitheryToolName.trim()} onClick={handleAddSmitheryItem}>
+                {targetItemId ? "수정완료" : "추가하기"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ════ 기타 모달들 ════ */}
+      {/* ════ 기타 모달 ════ */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">저장하시겠습니까?</h2>
-            <p className="modal-desc">설정하신 에이전트 정보가<br />라이브 서버에 즉시 적용됩니다.</p>
-            <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setIsModalOpen(false)}>취소</button>
-              <button className="btn-primary" onClick={confirmSave}>적용</button>
-            </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <h2 className="modal-title">저장하시겠습니까?</h2>
+          <p className="modal-desc">설정하신 에이전트 정보가<br />라이브 서버에 즉시 적용됩니다.</p>
+          <div className="modal-buttons">
+            <button className="btn-outline" onClick={() => setIsModalOpen(false)}>취소</button>
+            <button className="btn-primary" onClick={confirmSave}>적용</button>
           </div>
-        </div>
+        </div></div>
       )}
-
       {isExitModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <div className="modal-logo"><span>KLEVER ONE</span></div>
-            <p className="modal-desc">클레버원 홈페이지로 돌아가시겠어요?<br />저장하지 않은 변경사항은 사라질 수 있습니다.</p>
-            <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setIsExitModalOpen(false)}>취소</button>
-              <button className="btn-danger" onClick={() => { setIsExitModalOpen(false); window.open("https://www.klever-one.com/", "_blank"); }}>나가기</button>
-            </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <div className="modal-logo"><span>KLEVER ONE</span></div>
+          <p className="modal-desc">클레버원 홈페이지로 돌아가시겠어요?<br />저장하지 않은 변경사항은 사라질 수 있습니다.</p>
+          <div className="modal-buttons">
+            <button className="btn-outline" onClick={() => setIsExitModalOpen(false)}>취소</button>
+            <button className="btn-danger" onClick={() => { setIsExitModalOpen(false); window.open("https://www.klever-one.com/", "_blank"); }}>나가기</button>
           </div>
-        </div>
+        </div></div>
       )}
-
       {isNewKeyModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">신규 키 발급</h2>
-            <p className="modal-desc" style={{ marginBottom: "16px" }}>새로 발급할 에이전트 키의 이름을 지정하세요.</p>
-            <input type="text" className="custom-input" style={{ marginBottom: "24px", textAlign: "center" }}
-              value={newKeyNameInput} onChange={(e) => setNewKeyNameInput(e.target.value)} placeholder="예: 영업용 챗봇 키" autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") confirmGenerateNewKey(); }} />
-            <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setIsNewKeyModalOpen(false)}>취소</button>
-              <button className="btn-primary" onClick={confirmGenerateNewKey}>발급하기</button>
-            </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <h2 className="modal-title">신규 키 발급</h2>
+          <p className="modal-desc" style={{ marginBottom: "16px" }}>새로 발급할 에이전트 키의 이름을 지정하세요.</p>
+          <input type="text" className="custom-input" style={{ marginBottom: "24px", textAlign: "center" }}
+            value={newKeyNameInput} onChange={(e) => setNewKeyNameInput(e.target.value)} placeholder="예: 영업용 챗봇 키" autoFocus
+            onKeyDown={(e) => { if (e.key === "Enter") confirmGenerateNewKey(); }} />
+          <div className="modal-buttons">
+            <button className="btn-outline" onClick={() => setIsNewKeyModalOpen(false)}>취소</button>
+            <button className="btn-primary" onClick={confirmGenerateNewKey}>발급하기</button>
           </div>
-        </div>
+        </div></div>
       )}
-
       {alertMessage && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">알림</h2>
-            <p className="modal-desc" style={{ marginBottom: "24px" }}>{alertMessage}</p>
-            <div className="modal-buttons">
-              <button className="btn-primary" onClick={() => setAlertMessage("")}>확인</button>
-            </div>
-          </div>
-        </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <h2 className="modal-title">알림</h2>
+          <p className="modal-desc" style={{ marginBottom: "24px" }}>{alertMessage}</p>
+          <div className="modal-buttons"><button className="btn-primary" onClick={() => setAlertMessage("")}>확인</button></div>
+        </div></div>
       )}
-
       {deleteTargetId && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">키 삭제</h2>
-            <p className="modal-desc" style={{ marginBottom: "24px" }}>이 API 키를 삭제하시겠습니까?<br />연결된 에이전트가 작동하지 않을 수 있습니다.</p>
-            <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setDeleteTargetId(null)}>취소</button>
-              <button className="btn-danger" onClick={confirmDeleteKey}>삭제</button>
-            </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <h2 className="modal-title">키 삭제</h2>
+          <p className="modal-desc" style={{ marginBottom: "24px" }}>이 API 키를 삭제하시겠습니까?<br />연결된 에이전트가 작동하지 않을 수 있습니다.</p>
+          <div className="modal-buttons">
+            <button className="btn-outline" onClick={() => setDeleteTargetId(null)}>취소</button>
+            <button className="btn-danger" onClick={confirmDeleteKey}>삭제</button>
           </div>
-        </div>
+        </div></div>
       )}
-
       {reissueTargetId && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h2 className="modal-title">키 재발급</h2>
-            <p className="modal-desc" style={{ marginBottom: "24px" }}>이 API 키의 재발급을 신청하시겠습니까?<br />새로운 키가 발급되면 기존 키로 연결된 에이전트는 더 이상 작동하지 않습니다.</p>
-            <div className="modal-buttons">
-              <button className="btn-outline" onClick={() => setReissueTargetId(null)}>취소</button>
-              <button className="btn-primary" onClick={confirmReissueKey}>재발급</button>
-            </div>
+        <div className="modal-overlay"><div className="modal-box">
+          <h2 className="modal-title">키 재발급</h2>
+          <p className="modal-desc" style={{ marginBottom: "24px" }}>이 API 키의 재발급을 신청하시겠습니까?<br />새로운 키가 발급되면 기존 키로 연결된 에이전트는 더 이상 작동하지 않습니다.</p>
+          <div className="modal-buttons">
+            <button className="btn-outline" onClick={() => setReissueTargetId(null)}>취소</button>
+            <button className="btn-primary" onClick={confirmReissueKey}>재발급</button>
           </div>
-        </div>
+        </div></div>
       )}
     </div>
   );

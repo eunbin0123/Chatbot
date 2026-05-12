@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { Config, PixelStreaming } from "@epicgames-ps/lib-pixelstreamingfrontend-ue5.4";
 import "../css/FloatingWidget.css";
 
-// 🚀 [핵심] MCP 도구를 사용하기 위한 함수들 임포트
 import { buildOpenAITools, buildGeminiTools, executeMcpTool } from "../utils/adminUtils";
 
 interface BasicChatbotProps {
@@ -18,12 +17,18 @@ interface BasicChatbotProps {
   promptMode?: string;
   promptTags?: string[];
   promptManual?: string;
+  mcpList?: any[]; // ✅ 추가
 }
 
-// 채팅 내역 저장을 위한 타입 선언
 interface ChatMessage {
   role: "user" | "ai";
   text: string;
+}
+
+// 멀티턴용 LLM 메시지 히스토리 타입
+interface LlmMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
 }
 
 const tagInstructions: Record<string, string> = {
@@ -31,7 +36,7 @@ const tagInstructions: Record<string, string> = {
   "no_religion": "종교와 관련된 논쟁이나 의견 표출을 피하세요.",
   "no_social_controversy": "사회적 논란이 될 수 있는 주제에 대해서는 철저히 중립을 지키세요.",
   "no_profanity": "어떤 상황에서도 비속어나 혐오 표현을 사용하지 마세요.",
-  "no_competitors": "타사나경쟁사에 대한 언급은 피하고, 우리 서비스에 집중하세요.",
+  "no_competitors": "타사나 경쟁사에 대한 언급은 피하고, 우리 서비스에 집중하세요.",
   "no_personal_info": "사용자의 개인정보를 요구하거나 저장하지 마세요.",
   "polite_tone": "항상 정중하고 예의 바른 존댓말로 답변하세요.",
   "require_citation": "사실 기반의 정보를 제공할 때는 가능한 한 출처나 근거를 함께 언급하세요.",
@@ -50,7 +55,8 @@ export function BasicChatbot({
   agentName = "",
   promptMode = "tag",
   promptTags = [],
-  promptManual = ""
+  promptManual = "",
+  mcpList = [], // ✅ 추가
 }: BasicChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(false);
@@ -61,26 +67,20 @@ export function BasicChatbot({
   const [isMicOn, setIsMicOn] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
-  // ✅ 픽셀스트리밍 연결 상태 추적
   const [isPsConnected, setIsPsConnected] = useState(false);
-
-  // ✅ 픽셀스트리밍 연결 실패(fallback) 상태
   const [isPsFailed, setIsPsFailed] = useState(false);
-
-  // ✅ fallback 인사 중복 방지용 ref
   const greetingPlayedRef = useRef(false);
-
-  // ✅ 현재 재생 중인 TTS Audio 인스턴스 추적 (정지 제어용)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ 멀티턴 대화 히스토리 (LLM에 전달되는 실제 messages 배열)
+  const llmHistoryRef = useRef<LlmMessage[]>([]);
+
   const videoWrapperRef = useRef<HTMLDivElement | null>(null);
   const psInstanceRef = useRef<PixelStreaming | null>(null);
-
-  // ✅ [FIX #6] threadId를 ref로 관리하여 위젯 닫기/열기 시 초기화 가능하도록
   const threadIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -89,11 +89,8 @@ export function BasicChatbot({
     }
   }, [chatHistory, isHistoryOpen]);
 
-  // ✅ 페이지 이탈(새로고침/탭 닫기/URL 이동) 시 TTS 정지
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      stopCurrentAudio();
-    };
+    const handleBeforeUnload = () => stopCurrentAudio();
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -101,9 +98,6 @@ export function BasicChatbot({
     };
   }, []);
 
-  // ==========================================
-  // ✅ 픽셀스트리밍 실패 시 AI 자동 인사
-  // ==========================================
   useEffect(() => {
     if (isPsFailed && !greetingPlayedRef.current) {
       greetingPlayedRef.current = true;
@@ -116,25 +110,21 @@ export function BasicChatbot({
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
     setIsResizing(true);
-
     const onMouseMove = (mouseMoveEvent: MouseEvent) => {
       setSize((prev) => {
         const adjustX = layout === "bottom-right" || layout === "center" || layout === "top-right" ? -mouseMoveEvent.movementX : mouseMoveEvent.movementX;
         const adjustY = layout === "bottom-right" || layout === "center" || layout === "bottom-left" ? -mouseMoveEvent.movementY : mouseMoveEvent.movementY;
-
         return {
           width: Math.min(Math.max(prev.width + adjustX, 300), 800),
           height: Math.min(Math.max(prev.height + adjustY, 250), 600)
         };
       });
     };
-
     const onMouseUp = () => {
       setIsResizing(false);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   };
@@ -142,7 +132,6 @@ export function BasicChatbot({
   const ResizeHandle = () => {
     const isLeft = layout.includes("left");
     const isTop = layout.includes("top");
-
     const style: React.CSSProperties = {
       position: 'absolute',
       [isLeft ? 'right' : 'left']: '2px',
@@ -151,13 +140,11 @@ export function BasicChatbot({
       zIndex: 10005,
       padding: '4px'
     };
-
     let pathData = "M16,4 L8,4 Q4,4 4,8 L4,16";
     if (layout === "bottom-right" || layout === "center") pathData = "M16,4 L8,4 Q4,4 4,8 L4,16";
     else if (layout === "bottom-left") pathData = "M8,4 L16,4 Q20,4 20,8 L20,16";
     else if (layout === "top-right") pathData = "M16,20 L8,20 Q4,20 4,16 L4,8";
     else if (layout === "top-left") pathData = "M8,20 L16,20 Q20,20 20,16 L20,8";
-
     return (
       <div className="fw-resize-handle" style={style} onMouseDown={handleResize}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -188,8 +175,9 @@ export function BasicChatbot({
   const closeWidget = () => {
     disconnectStreaming();
     stopCurrentAudio();
-    // ✅ [FIX #6] 위젯 닫을 때 threadId 초기화 (다음 오픈 시 새 thread 시작)
     threadIdRef.current = null;
+    // ✅ 위젯 닫을 때 LLM 히스토리도 초기화
+    llmHistoryRef.current = [];
     setIsMicOn(false);
     setIsOpen(false);
     setIsHistoryOpen(false);
@@ -203,7 +191,7 @@ export function BasicChatbot({
       const connect = async () => {
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const protocol = window.location.protocol === 'https:' ? 'ws' : 'ws';
+          const protocol = 'ws';
           const res = await fetch(`${matchmakerUrl}/signallingserver`);
           const data = await res.json();
           const ssUrl = `${protocol}://${data.signallingServer}`;
@@ -212,7 +200,6 @@ export function BasicChatbot({
               ss: ssUrl, AutoPlayVideo: true, AutoConnect: true, HoveringMouse: true, KeyboardInput: false, MouseInput: false,
             },
           });
-
           const psInstance = new PixelStreaming(config);
           psInstanceRef.current = psInstance;
 
@@ -230,7 +217,6 @@ export function BasicChatbot({
             psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
           });
 
-          // ✅ 스트리밍 연결 해제 이벤트 감지
           psInstance.addEventListener("webRtcDisconnected", () => {
             setIsPsConnected(false);
             setIsPsFailed(true);
@@ -257,10 +243,6 @@ export function BasicChatbot({
     }
   }, [avatarnum, isOpen, isPsConnected]);
 
-  // ==========================================
-  // 🟢 웹에서 직접 TTS를 호출하는 함수 구현 (Fallback)
-  // ==========================================
-
   const stopCurrentAudio = () => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -272,33 +254,19 @@ export function BasicChatbot({
   const playFallbackTTS = async (text: string, avatarNum: number) => {
     try {
       stopCurrentAudio();
-
       const speakerId = avatarNum === 2 ? "moonjung" : "kangil";
       const ttsUrl = import.meta.env.VITE_FUSION_TTS_URL || "/tts-proxy/tts";
       const response = await fetch(ttsUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: text,
-          speaker: speakerId,
-          speed: 1.0,
-          normalize: true
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, speaker: speakerId, speed: 1.0, normalize: true })
       });
-
-      if (!response.ok) {
-        throw new Error(`TTS API Error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`TTS API Error: ${response.status}`);
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
-
       currentAudioRef.current = audio;
       audio.play();
-
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         currentAudioRef.current = null;
@@ -309,7 +277,156 @@ export function BasicChatbot({
   };
 
   // ==========================================
-  // 🚀 메시지 전송 로직
+  // ✅ 시스템 프롬프트 빌더
+  // ==========================================
+  const buildSystemPrompt = (): string => {
+    const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
+    const savedCustomTags = widgetConfig.customTags || [];
+
+    const activePromptMode = promptMode || widgetConfig.promptMode || "tag";
+    const activePromptTags = (promptTags && promptTags.length > 0) ? promptTags : (widgetConfig.promptTags || []);
+    const activePromptManual = promptManual || widgetConfig.promptManual || "";
+
+    if (activePromptMode === 'tag' && activePromptTags.length > 0) {
+      const rules = activePromptTags.map((tag: string) => {
+        if (tagInstructions[tag]) return tagInstructions[tag];
+        if (tag.startsWith("custom_")) {
+          const customMatch = savedCustomTags.find((t: any) => t.id === tag);
+          return customMatch ? customMatch.label : null;
+        }
+        return tag;
+      }).filter(Boolean);
+      if (rules.length > 0) {
+        return rules.map((rule: string, index: number) => `${index + 1}. ${rule}`).join("\n");
+      }
+    } else if (activePromptMode === 'manual' && activePromptManual.trim()) {
+      return activePromptManual.trim();
+    }
+    return "";
+  };
+
+  // ==========================================
+  // ✅ 진짜 MCP Tool Use 사이클 - GPT (non-Assistant)
+  // ==========================================
+  const runGptWithMcp = async (
+    gptApiKey: string,
+    messagesPayload: any[],
+    activeMcpList: any[]
+  ): Promise<string> => {
+    const openAITools = buildOpenAITools(activeMcpList);
+    const MAX_TOOL_ROUNDS = 5;
+    let round = 0;
+
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
+      const bodyPayload: any = { model: "gpt-4o", messages: messagesPayload };
+      if (openAITools && openAITools.length > 0) {
+        bodyPayload.tools = openAITools;
+        bodyPayload.tool_choice = "auto";
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}` },
+        body: JSON.stringify(bodyPayload)
+      });
+      const data = await response.json();
+      const responseMsg = data.choices?.[0]?.message;
+      if (!responseMsg) throw new Error("GPT 응답이 비어있습니다.");
+
+      // tool_calls 없으면 최종 응답
+      if (!responseMsg.tool_calls || responseMsg.tool_calls.length === 0) {
+        return responseMsg.content || "";
+      }
+
+      // ✅ tool_calls 있으면: assistant 메시지 추가 후 도구 병렬 실행
+      messagesPayload.push(responseMsg);
+
+      const toolResults = await Promise.all(
+        responseMsg.tool_calls.map(async (toolCall: any) => {
+          let args = {};
+          try { args = JSON.parse(toolCall.function.arguments || "{}"); } catch {}
+          console.log(`[🔧 tool_use] LLM 선택 도구: ${toolCall.function.name}`, args);
+          const result = await executeMcpTool(toolCall.function.name, args, activeMcpList);
+          return {
+            role: "tool",
+            tool_call_id: toolCall.id,
+            name: toolCall.function.name,
+            content: String(result),
+          };
+        })
+      );
+
+      messagesPayload.push(...toolResults);
+      // 다음 round에서 LLM이 tool 결과 보고 최종 응답 생성
+    }
+
+    throw new Error(`MCP Tool Use: 최대 반복 횟수(${MAX_TOOL_ROUNDS})를 초과했습니다.`);
+  };
+
+  // ==========================================
+  // ✅ 진짜 MCP Tool Use 사이클 - Gemini
+  // ==========================================
+  const runGeminiWithMcp = async (
+    apiKey: string,
+    geminiContents: any[],
+    systemPrompt: string,
+    activeMcpList: any[]
+  ): Promise<string> => {
+    const geminiTools = buildGeminiTools(activeMcpList);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const MAX_TOOL_ROUNDS = 5;
+    let round = 0;
+
+    const callGemini = async (contents: any[]) => {
+      const body: any = { contents };
+      if (systemPrompt) body.systemInstruction = { parts: [{ text: systemPrompt }] };
+      if (geminiTools && geminiTools.length > 0) body.tools = geminiTools;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message);
+      return json;
+    };
+
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
+      const data = await callGemini(geminiContents);
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const functionCallParts = parts.filter((p: any) => p.functionCall);
+      const textParts = parts.filter((p: any) => p.text);
+
+      // functionCall 없으면 최종 응답
+      if (functionCallParts.length === 0) {
+        return textParts.map((p: any) => p.text).join("") || "";
+      }
+
+      // model 응답 전체를 contents에 추가
+      geminiContents.push({ role: "model", parts });
+
+      // 도구 병렬 실행
+      const functionResponseParts = await Promise.all(
+        functionCallParts.map(async (part: any) => {
+          const { name, args } = part.functionCall;
+          console.log(`[🔧 functionCall] LLM 선택 도구: ${name}`, args);
+          const result = await executeMcpTool(name, args || {}, activeMcpList);
+          let parsedResult: any;
+          try { parsedResult = JSON.parse(result); } catch { parsedResult = { result }; }
+          return { functionResponse: { name, response: parsedResult } };
+        })
+      );
+
+      geminiContents.push({ role: "user", parts: functionResponseParts });
+    }
+
+    throw new Error(`MCP Tool Use: 최대 반복 횟수(${MAX_TOOL_ROUNDS})를 초과했습니다.`);
+  };
+
+  // ==========================================
+  // ✅ 메시지 전송 로직 (멀티턴 + 진짜 MCP 사이클)
   // ==========================================
   const sendMessage = async () => {
     const message = inputText.trim();
@@ -320,67 +437,31 @@ export function BasicChatbot({
       setInputText("");
       setChatHistory(prev => [...prev, { role: "user", text: message }]);
 
-      if (!isPsConnected && !isHistoryOpen) {
-        setIsHistoryOpen(true);
-      }
+      if (!isPsConnected && !isHistoryOpen) setIsHistoryOpen(true);
 
+      // ✅ prop으로 받은 mcpList 우선 사용, 없으면 localStorage 폴백
       const widgetConfig = JSON.parse(localStorage.getItem("klever_widget_config") || "{}");
-      const mcpList = widgetConfig.mcpList || [];
-      const savedCustomTags = widgetConfig.customTags || [];
-
-      let aiResponse = "";
-
-      const activePromptMode = promptMode || widgetConfig.promptMode || "tag";
-      const activePromptTags = (promptTags && promptTags.length > 0) ? promptTags : (widgetConfig.promptTags || []);
-      const activePromptManual = promptManual || widgetConfig.promptManual || "";
-
-      let finalSystemPrompt = "";
-
-      if (activePromptMode === 'tag' && activePromptTags.length > 0) {
-        const rules = activePromptTags.map((tag: string) => {
-          if (tagInstructions[tag]) return tagInstructions[tag];
-          else if (tag.startsWith("custom_")) {
-            const customMatch = savedCustomTags.find((t: any) => t.id === tag);
-            return customMatch ? customMatch.label : null;
-          }
-          else return tag;
-        }).filter(Boolean);
-
-        if (rules.length > 0) {
-          finalSystemPrompt = rules.map((rule: string, index: number) => `${index + 1}. ${rule}`).join("\n");
-        }
-      } else if (activePromptMode === 'manual' && activePromptManual.trim()) {
-        finalSystemPrompt = activePromptManual.trim();
-      }
+      const activeMcpList = (mcpList && mcpList.length > 0)
+        ? mcpList.filter((m: any) => m.active)
+        : (widgetConfig.mcpList || []).filter((m: any) => m.active);
 
       const now = new Date();
       const currentTimeStr = now.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
-      const timeContext = `\n[System Note: 현재 현실 세계의 시각은 ${currentTimeStr} 입니다. 사용자가 '오늘', '내일', '이번 주' 등의 시간을 말하면 반드시 이 시간을 기준으로 실제 날짜를 계산해서 구글 캘린더나 도구에 전달하세요.]`;
+      const timeContext = `\n[현재 시각: ${currentTimeStr}. 날짜 관련 질문은 이 시간을 기준으로 계산하세요.]`;
+      const messageWithTime = `${message}${timeContext}`;
 
-      // ✅ [FIX #3] GPT non-assistant 경로: system 프롬프트는 system role에만 넣고,
-      //    user 메시지에는 원본 메시지 + 시간 컨텍스트만 추가 (이중 삽입 제거)
-      const USER_MESSAGE_WITH_TIME = `${message}${timeContext}`;
-
-      // Assistant API 경로에서만 user 메시지에 시스템 지침 포함 (system role 없으므로)
-      const ENFORCED_USER_MESSAGE_FOR_ASSISTANT = finalSystemPrompt
-        ? `${message}\n\n================\n[System Directive for AI: 반드시 아래의 페르소나 및 규칙을 엄격하게 적용하여 답변할 것.]\n${finalSystemPrompt}${timeContext}`
-        : USER_MESSAGE_WITH_TIME;
-
-      const TOOL_REMINDER_MESSAGE = finalSystemPrompt
-        ? `[System Reminder: 방금 제공된 검색 결과나 도구 데이터를 바탕으로 답변하되, 반드시 처음에 지시받은 페르소나와 규칙(존댓말 등)을 유지하여 자연스럽게 답변하세요.]`
-        : "";
-
+      const finalSystemPrompt = buildSystemPrompt();
       const currentLlm = responseLlm || "gpt";
+      let aiResponse = "";
 
       // ==========================================
-      // 🟢 OpenAI (GPT) 엔진 처리
+      // 🟢 GPT 처리
       // ==========================================
       if (currentLlm === "gpt") {
         const gptApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        const openAITools = buildOpenAITools(mcpList);
 
+        // ── Assistant API (RAG 포함) 경로 ──
         if (assistantId) {
-          // ✅ [FIX #6] ref 기반 threadId 사용
           let currentThreadId = threadIdRef.current;
           if (!currentThreadId) {
             const threadRes = await fetch("https://api.openai.com/v1/threads", {
@@ -392,21 +473,25 @@ export function BasicChatbot({
             threadIdRef.current = currentThreadId;
           }
 
+          const userContent = finalSystemPrompt
+            ? `${message}\n\n[System Directive: 반드시 아래 규칙 준수]\n${finalSystemPrompt}${timeContext}`
+            : messageWithTime;
+
           await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}`, "OpenAI-Beta": "assistants=v2" },
-            body: JSON.stringify({ role: "user", content: ENFORCED_USER_MESSAGE_FOR_ASSISTANT })
+            body: JSON.stringify({ role: "user", content: userContent })
           });
 
-          const runBody: any = { assistant_id: assistantId };
-
-          if (finalSystemPrompt) {
-            runBody.additional_instructions = "Follow the System Directive embedded in the user's message strictly.";
-          }
-
+          const openAITools = buildOpenAITools(activeMcpList);
           const toolsArray: any[] = [{ type: "file_search" }];
           if (openAITools) toolsArray.push(...openAITools);
-          runBody.tools = toolsArray;
+
+          const runBody: any = {
+            assistant_id: assistantId,
+            tools: toolsArray,
+            ...(finalSystemPrompt ? { additional_instructions: "Strictly follow the System Directive in the user's message." } : {})
+          };
 
           const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
@@ -417,6 +502,7 @@ export function BasicChatbot({
           const runId = runData.id;
           let runStatus = runData.status;
 
+          // ✅ Assistant API의 tool_use 사이클 (requires_action 처리)
           while (runStatus === "queued" || runStatus === "in_progress" || runStatus === "requires_action") {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const checkRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`, {
@@ -427,13 +513,15 @@ export function BasicChatbot({
 
             if (runStatus === "requires_action") {
               const toolCalls = checkData.required_action.submit_tool_outputs.tool_calls;
-              const toolOutputs = [];
-
-              for (const toolCall of toolCalls) {
-                const args = JSON.parse(toolCall.function.arguments);
-                const result = await executeMcpTool(toolCall.function.name, args, mcpList);
-                toolOutputs.push({ tool_call_id: toolCall.id, output: String(result) });
-              }
+              const toolOutputs = await Promise.all(
+                toolCalls.map(async (toolCall: any) => {
+                  let args = {};
+                  try { args = JSON.parse(toolCall.function.arguments); } catch {}
+                  console.log(`[🔧 Assistant tool_use] ${toolCall.function.name}`, args);
+                  const result = await executeMcpTool(toolCall.function.name, args, activeMcpList);
+                  return { tool_call_id: toolCall.id, output: String(result) };
+                })
+              );
 
               await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}/submit_tool_outputs`, {
                 method: "POST",
@@ -456,164 +544,76 @@ export function BasicChatbot({
           }
 
         } else {
-          // ✅ [FIX #3] system role과 user 메시지 이중 삽입 제거
-          //    system role에만 finalSystemPrompt 넣고, user 메시지에는 원본만
-          let messagesPayload: any[] = [];
-          if (finalSystemPrompt) {
-            messagesPayload.push({ role: "system", content: finalSystemPrompt });
+          // ── 일반 Chat Completions 경로 (멀티턴) ──
+          // ✅ 첫 메시지에만 system prompt 추가, 이후엔 히스토리 누적
+          if (llmHistoryRef.current.length === 0 && finalSystemPrompt) {
+            llmHistoryRef.current.push({ role: "system", content: finalSystemPrompt });
           }
-          messagesPayload.push({ role: "user", content: USER_MESSAGE_WITH_TIME });
+          llmHistoryRef.current.push({ role: "user", content: messageWithTime });
 
-          const fetchChat = async (msgs: any) => {
-            const bodyPayload: any = { model: "gpt-4o", messages: msgs };
-            if (openAITools) bodyPayload.tools = openAITools;
+          // runGptWithMcp에 히스토리 복사본 전달 (tool 메시지 포함 후 내부에서 수정됨)
+          const messagesForThisTurn = [...llmHistoryRef.current];
+          aiResponse = await runGptWithMcp(gptApiKey, messagesForThisTurn, activeMcpList);
 
-            const response = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gptApiKey}` },
-              body: JSON.stringify(bodyPayload)
-            });
-            return await response.json();
-          };
-
-          let data = await fetchChat(messagesPayload);
-          let responseMsg = data.choices[0]?.message;
-
-          if (responseMsg?.tool_calls) {
-            messagesPayload.push(responseMsg);
-            for (const toolCall of responseMsg.tool_calls) {
-              const args = JSON.parse(toolCall.function.arguments);
-              const result = await executeMcpTool(toolCall.function.name, args, mcpList);
-              messagesPayload.push({
-                role: "tool",
-                tool_call_id: toolCall.id,
-                name: toolCall.function.name,
-                content: String(result)
-              });
-            }
-
-            if (TOOL_REMINDER_MESSAGE) {
-              messagesPayload.push({ role: "user", content: TOOL_REMINDER_MESSAGE });
-            }
-
-            data = await fetchChat(messagesPayload);
-            aiResponse = data.choices[0]?.message?.content || "응답을 생성하지 못했습니다.";
-          } else {
-            aiResponse = responseMsg?.content || "응답을 생성하지 못했습니다.";
-          }
+          // ✅ 최종 assistant 응답을 히스토리에 추가 (tool 메시지 제외, 최종 텍스트만)
+          llmHistoryRef.current.push({ role: "assistant", content: aiResponse });
         }
 
       // ==========================================
-      // 🟡 Google Gemini 엔진 처리
+      // 🟡 Gemini 처리
       // ==========================================
       } else {
         try {
           const apiKey = import.meta.env.VITE_GEMINAI_API_KEY;
-          // ✅ [FIX #1] 존재하는 올바른 Gemini 모델명으로 수정
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
 
-          // ✅ [FIX #3] Gemini도 system instruction과 user 메시지 분리
-          //    user parts에는 원본 메시지만, system은 systemInstruction으로
-          let parts: any[] = [{ text: USER_MESSAGE_WITH_TIME }];
-          const geminiTools = buildGeminiTools(mcpList);
+          // ✅ Gemini 멀티턴: contents 배열에 대화 히스토리 누적
+          // llmHistoryRef를 Gemini 형식으로 변환
+          const geminiContents: any[] = llmHistoryRef.current
+            .filter((m) => m.role !== "system")
+            .map((m) => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }]
+            }));
 
-          if (assistantId) {
+          // RAG 파일 첨부 (첫 메시지에만)
+          const userParts: any[] = [{ text: messageWithTime }];
+          if (assistantId && geminiContents.length === 0) {
             try {
               const geminiFiles = JSON.parse(assistantId);
               geminiFiles.forEach((file: any) => {
-                parts.unshift({ fileData: { mimeType: file.mimeType, fileUri: file.uri } });
+                userParts.unshift({ fileData: { mimeType: file.mimeType, fileUri: file.uri } });
               });
-            } catch (e) {
-              // assistantId가 JSON이 아닌 경우 (일반 문자열) 조용히 무시
-              console.log("Gemini 파일 파싱 건너뜀 - 일반 ID 형식");
+            } catch {
+              // 일반 ID 형식이면 무시
             }
           }
 
-          const geminiBody: any = { contents: [{ role: "user", parts: parts }] };
-          if (finalSystemPrompt) {
-            geminiBody.systemInstruction = { parts: [{ text: finalSystemPrompt }] };
-          }
-          if (geminiTools) geminiBody.tools = geminiTools;
+          geminiContents.push({ role: "user", parts: userParts });
 
-          const fetchGemini = async (bodyPayload: any) => {
-            const response = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(bodyPayload)
-            });
-            const json = await response.json();
-            if (json.error) throw new Error(json.error.message);
-            return json;
-          };
+          aiResponse = await runGeminiWithMcp(apiKey, geminiContents, finalSystemPrompt, activeMcpList);
 
-          // ✅ [FIX #4] Gemini 다중 tool call 루프 처리
-          let data = await fetchGemini(geminiBody);
-          let loopCount = 0;
-          const MAX_TOOL_LOOPS = 5; // 무한루프 방지
-
-          while (loopCount < MAX_TOOL_LOOPS) {
-            const firstPart = data.candidates?.[0]?.content?.parts?.[0];
-
-            if (!firstPart || !firstPart.functionCall) {
-              // tool call 없음 → 텍스트 응답
-              aiResponse = firstPart?.text || "응답 생성에 실패했습니다.";
-              break;
-            }
-
-            // tool call 처리
-            const funcCall = firstPart.functionCall;
-            const result = await executeMcpTool(funcCall.name, funcCall.args, mcpList);
-
-            let parsedResult: any;
-            try {
-              parsedResult = JSON.parse(result);
-            } catch (e) {
-              parsedResult = { raw_data: String(result) };
-            }
-
-            const modelContent = data.candidates[0].content;
-            modelContent.role = "model";
-            geminiBody.contents.push(modelContent);
-
-            const functionResponseData: any = { name: funcCall.name, response: parsedResult };
-            if (funcCall.id) functionResponseData.id = funcCall.id;
-
-            const userParts: any[] = [{ functionResponse: functionResponseData }];
-            if (TOOL_REMINDER_MESSAGE && loopCount === 0) {
-              // 첫 번째 tool 결과 전달 시에만 reminder 추가
-              userParts.push({ text: TOOL_REMINDER_MESSAGE });
-            }
-
-            geminiBody.contents.push({ role: "user", parts: userParts });
-
-            data = await fetchGemini(geminiBody);
-            loopCount++;
-          }
-
-          if (loopCount >= MAX_TOOL_LOOPS) {
-            // 최대 루프 초과 시 마지막 응답 사용
-            aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "응답 생성에 실패했습니다.";
-          }
+          // ✅ 히스토리 업데이트
+          llmHistoryRef.current.push({ role: "user", content: messageWithTime });
+          llmHistoryRef.current.push({ role: "assistant", content: aiResponse });
 
         } catch (error) {
-          console.error("Gemini 통신 중 에러 발생:", error);
-          aiResponse = "Gemini 연결 및 도구 실행 중 오류가 발생했습니다.";
+          console.error("Gemini 통신 중 에러:", error);
+          aiResponse = "Gemini 연결 중 오류가 발생했습니다.";
         }
       }
 
       if (aiResponse) {
         setChatHistory(prev => [...prev, { role: "ai", text: aiResponse }]);
 
-        // ✅ [추가됨] 사용 엔진(LLM) 파이프라인 콘솔 로그 출력 (UI 표시 제거, 오직 콘솔에만 출력)
-        const isRagUsed = !!assistantId;
-        console.log(`\n[🤖 KLEVER ONE 에이전트 파이프라인 상태]
+        console.log(`\n[🤖 KLEVER ONE 파이프라인]
 ===========================================
-👂 분석(듣기) 엔진  : ${analysisLlm || "설정 안됨"}
-🧠 지식(RAG) 엔진   : ${isRagUsed ? (ragLlm || "설정 안됨") : "미사용"}
-🗣️ 생성(말하기) 엔진: ${responseLlm || "gpt"}
+👂 분석 엔진  : ${analysisLlm || "설정 안됨"}
+🧠 RAG 엔진   : ${assistantId ? (ragLlm || "설정 안됨") : "미사용"}
+🔧 활성 MCP   : ${activeMcpList.map((m: any) => m.name).join(", ") || "없음"}
+🗣️ 응답 엔진  : ${responseLlm || "gpt"}
 ===========================================
-📝 사용자 입력 내용 : ${message}
-💬 AI 응답 내용     : ${aiResponse}\n`);
+📝 사용자: ${message}
+💬 AI: ${aiResponse}\n`);
 
         if (psInstanceRef.current && isPsConnected) {
           psInstanceRef.current.emitUIInteraction({
@@ -654,11 +654,8 @@ export function BasicChatbot({
         if (!isPsConnected) {
           closeWidget();
         } else {
-          if (isHistoryOpen) {
-            setIsHistoryOpen(false);
-          } else {
-            closeWidget();
-          }
+          if (isHistoryOpen) setIsHistoryOpen(false);
+          else closeWidget();
         }
       }}
       title={(!isPsConnected || !isHistoryOpen) ? "위젯 닫기" : "대화 내역 닫기"}
@@ -750,7 +747,6 @@ export function BasicChatbot({
               placeholder={isThinking ? "답변을 생성하고 있습니다..." : "메시지 입력..."}
               disabled={isLoading || isThinking}
             />
-
             <button
               type="button"
               className={`mic-btn ${isMicOn ? "active" : ""}`}
@@ -761,7 +757,6 @@ export function BasicChatbot({
                 <path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3zm5-3a1 1 0 10-2 0 3 3 0 11-6 0 1 1 0 10-2 0 5 5 0 004 4.9V19H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.1A5 5 0 0017 11z" />
               </svg>
             </button>
-
             <button
               onClick={sendMessage}
               className="send-btn"
