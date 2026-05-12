@@ -186,9 +186,14 @@ export function BasicChatbot({
     setTimeout(() => setIsRendered(false), 400);
   };
 
+  // ==========================================
+  // ✅ 픽셀스트리밍 연결 및 무한루프 방지(Timeout) 로직 추가
+  // ==========================================
   useEffect(() => {
     if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
       const connect = async () => {
+        let connectionTimeout: any;
+
         try {
           const matchmakerUrl = unrealurl.replace("https://", "http://");
           const protocol = 'ws';
@@ -203,7 +208,17 @@ export function BasicChatbot({
           const psInstance = new PixelStreaming(config);
           psInstanceRef.current = psInstance;
 
+          // ✅ 1. 최후의 안전장치: 5초 안에 영상이 안 나오면 강제로 텍스트 채팅 전환 (무한 루프 방지)
+          connectionTimeout = setTimeout(() => {
+            console.warn("Pixel Streaming 연결 시간 초과. 텍스트 채팅으로 전환합니다.");
+            setIsLoading(false);
+            setIsPsConnected(false);
+            setIsPsFailed(true);
+            setIsHistoryOpen(true);
+          }, 5000);
+
           psInstance.addEventListener("videoInitialized", () => {
+            clearTimeout(connectionTimeout); // ✅ 정상 연결 시 타임아웃 해제
             if (videoWrapperRef.current) {
               videoWrapperRef.current.innerHTML = "";
               videoWrapperRef.current.appendChild(psInstance.videoElementParent);
@@ -218,12 +233,24 @@ export function BasicChatbot({
           });
 
           psInstance.addEventListener("webRtcDisconnected", () => {
+            clearTimeout(connectionTimeout);
+            setIsPsConnected(false);
+            setIsPsFailed(true);
+            setIsHistoryOpen(true);
+          });
+
+          // ✅ 2. 웹소켓 오류 발생 시 즉시 텍스트 채팅으로 전환
+          psInstance.addEventListener("webSocketClosed", () => {
+            clearTimeout(connectionTimeout);
+            console.warn("WebSocket 연결 실패. 텍스트 채팅으로 전환합니다.");
+            setIsLoading(false);
             setIsPsConnected(false);
             setIsPsFailed(true);
             setIsHistoryOpen(true);
           });
 
         } catch (err) {
+          clearTimeout(connectionTimeout);
           console.error("Matchmaker connection failed:", err);
           setIsLoading(false);
           setIsPsConnected(false);
