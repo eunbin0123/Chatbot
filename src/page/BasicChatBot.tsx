@@ -183,87 +183,110 @@ export function BasicChatbot({
   };
 
   // ==========================================
-  // ✅ 가장 완벽한 픽셀스트리밍 Fallback(안전장치) 로직
+  // ✅ 픽셀스트리밍 연결 로직 (wss/ws 자동 선택 + DOM 렌더 보장)
   // ==========================================
   useEffect(() => {
-    if (isOpen && !psInstanceRef.current && videoWrapperRef.current) {
-      let isCancelled = false;
-      
-      // 공통 실패 처리 함수: 로딩을 즉시 해제하고 텍스트 채팅 모드로 전환
-      const handleFallback = (reason: string) => {
-        if (isCancelled) return;
-        console.warn(`[Fallback] ${reason} - 텍스트 채팅으로 강제 전환`);
-        isCancelled = true;
-        setIsLoading(false);
-        setIsPsConnected(false);
-        setIsPsFailed(true);
-        setIsHistoryOpen(true);
-      };
+    // ✅ Fix 1: isRendered 조건 추가 → DOM이 실제로 마운트된 후 연결 시작
+    if (!isOpen || !isRendered || psInstanceRef.current || !videoWrapperRef.current) return;
 
-      // 🔥 1. 절대 타이머: 통신이 무한 펜딩에 빠져도 무조건 5초 뒤에 로딩을 풉니다.
-      const watchdogTimer = setTimeout(() => {
-        handleFallback("연결 시간 초과 (5초)");
-      }, 5000);
+    let isCancelled = false;
 
-      const connect = async () => {
-        try {
-          const matchmakerUrl = unrealurl.replace("https://", "http://");
-          const res = await fetch(`${matchmakerUrl}/signallingserver`);
-          const data = await res.json();
-          const protocol = 'ws';
-          const ssUrl = `${protocol}://${data.signallingServer}`;
-          
-          const config = new Config({
-            initialSettings: {
-              ss: ssUrl, AutoPlayVideo: true, AutoConnect: true, HoveringMouse: true, KeyboardInput: false, MouseInput: false,
-            },
-          });
-          const psInstance = new PixelStreaming(config);
-          psInstanceRef.current = psInstance;
+    const handleFallback = (reason: string) => {
+      if (isCancelled) return;
+      console.warn(`[Fallback] ${reason} - 텍스트 채팅으로 강제 전환`);
+      isCancelled = true;
+      setIsLoading(false);
+      setIsPsConnected(false);
+      setIsPsFailed(true);
+      setIsHistoryOpen(true);
+    };
 
-          // ✅ 2. 영상 연결에 성공하면 타이머를 끄고 정상 모드로 돌립니다.
-          psInstance.addEventListener("videoInitialized", () => {
-            clearTimeout(watchdogTimer);
-            isCancelled = true; // 성공했으므로 Fallback 차단
-            if (videoWrapperRef.current) {
-              videoWrapperRef.current.innerHTML = "";
-              videoWrapperRef.current.appendChild(psInstance.videoElementParent);
-              setIsLoading(false);
-              setIsPsConnected(true);
-              setIsPsFailed(false);
-            }
-            psInstance.emitUIInteraction({ "Category": "SystemSetting", "Type": "WebConnected", "Width": "1280", "Height": "720" });
-            psInstance.emitUIInteraction({ "Category": "AvatarSetting", "Type": "AvatarNum", "Value": String(avatarnum) });
-            psInstance.emitUIInteraction({ "Category": "VoiceSetting", "Type": "Voice", "Value": avatarnum == 2 ? "FU_moonjung" : "FU_kangil" });
-            psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
-          });
+    // ✅ Fix 2: watchdog 타임아웃을 30초로 늘림 (WebRTC 협상 시간 확보)
+    const watchdogTimer = setTimeout(() => {
+      handleFallback("연결 시간 초과 (30초)");
+    }, 30000);
 
-          // ✅ 3. 에러 감지 시 5초를 기다리지 않고 즉시 텍스트 채팅 모드로 넘깁니다.
-          const triggerError = () => {
-            clearTimeout(watchdogTimer);
-            handleFallback("WebSocket 또는 WebRTC 오류 발생");
-          };
+    const connect = async () => {
+      try {
+        // ✅ Fix 3: 페이지 프로토콜에 따라 http/https 자동 선택 (Mixed Content 차단 방지)
+        const isSecurePage = window.location.protocol === "https:";
+        const httpProtocol = isSecurePage ? "https" : "http";
+        const wsProtocol = isSecurePage ? "wss" : "wss";
 
-          psInstance.addEventListener("webRtcDisconnected", triggerError);
-          psInstance.addEventListener("webSocketClosed", triggerError);
-          psInstance.addEventListener("webSocketError", triggerError);
-          psInstance.addEventListener("webRtcFailed", triggerError);
+        // unrealurl에서 프로토콜을 제거하고 현재 페이지에 맞는 프로토콜로 교체
+        const baseUrl = unrealurl.replace(/^https?:\/\//, "");
+        const matchmakerUrl = `${httpProtocol}://${baseUrl}`;
 
-        } catch (err) {
+        console.log(`[PixelStreaming] Matchmaker 요청: ${matchmakerUrl}/signallingserver`);
+
+        const res = await fetch(`${matchmakerUrl}/signallingserver`);
+        if (!res.ok) throw new Error(`Matchmaker 응답 오류: ${res.status}`);
+
+        const data = await res.json();
+        if (!data.signallingServer) throw new Error("signallingServer 값이 없습니다.");
+
+        // ✅ Fix 4: ws → wss 자동 선택 (https 페이지에서 ws:// 사용 시 브라우저가 차단)
+        const ssUrl = `${wsProtocol}://${data.signallingServer}`;
+        console.log(`[PixelStreaming] Signalling 서버 연결: ${ssUrl}`);
+
+        const config = new Config({
+          initialSettings: {
+            ss: ssUrl,
+            AutoPlayVideo: true,
+            AutoConnect: true,
+            HoveringMouse: true,
+            KeyboardInput: false,
+            MouseInput: false,
+          },
+        });
+
+        const psInstance = new PixelStreaming(config);
+        psInstanceRef.current = psInstance;
+
+        psInstance.addEventListener("videoInitialized", () => {
+          if (isCancelled) return;
           clearTimeout(watchdogTimer);
-          handleFallback(`Fetch 에러: ${err}`);
-        }
-      };
-      
-      connect();
+          isCancelled = true;
 
-      return () => {
-        isCancelled = true;
+          if (videoWrapperRef.current) {
+            videoWrapperRef.current.innerHTML = "";
+            videoWrapperRef.current.appendChild(psInstance.videoElementParent);
+            setIsLoading(false);
+            setIsPsConnected(true);
+            setIsPsFailed(false);
+          }
+
+          psInstance.emitUIInteraction({ "Category": "SystemSetting", "Type": "WebConnected", "Width": "1280", "Height": "720" });
+          psInstance.emitUIInteraction({ "Category": "AvatarSetting", "Type": "AvatarNum", "Value": String(avatarnum) });
+          psInstance.emitUIInteraction({ "Category": "VoiceSetting", "Type": "Voice", "Value": avatarnum == 2 ? "FU_moonjung" : "FU_kangil" });
+          psInstance.emitUIInteraction({ "Category": "PageSetting", "Type": "WindowSize" });
+        });
+
+        const triggerError = (eventName: string) => () => {
+          clearTimeout(watchdogTimer);
+          handleFallback(`이벤트 감지: ${eventName}`);
+        };
+
+        psInstance.addEventListener("webRtcDisconnected", triggerError("webRtcDisconnected"));
+        psInstance.addEventListener("webSocketClosed", triggerError("webSocketClosed"));
+        psInstance.addEventListener("webSocketError", triggerError("webSocketError"));
+        psInstance.addEventListener("webRtcFailed", triggerError("webRtcFailed"));
+
+      } catch (err) {
         clearTimeout(watchdogTimer);
-        disconnectStreaming();
-      };
-    }
-  }, [isOpen, unrealurl, avatarnum]);
+        handleFallback(`연결 에러: ${err}`);
+      }
+    };
+
+    connect();
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(watchdogTimer);
+      disconnectStreaming();
+    };
+  // ✅ Fix 5: isRendered를 의존성에 추가하여 DOM 마운트 후 재실행 보장
+  }, [isOpen, isRendered, unrealurl, avatarnum]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen && isPsConnected) {
