@@ -15,6 +15,7 @@ import {
   searchSmitheryServers,
   fetchSmitheryTools,
   parseSmitheryToolSpec,
+  fetchTextFromUrl,
 } from "../utils/adminUtils";
 
 const i18n = {
@@ -166,58 +167,72 @@ const i18n = {
 };
 
 // ── 눈 아이콘 토글 버튼 컴포넌트 ──
-function PasswordInput({ value, onChange, placeholder, style = {} }) {
+function PasswordInput({ value, onChange, placeholder, style = {}, syncedFrom = null }) {
   const [show, setShow] = useState(false);
   return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <input
-        type={show ? "text" : "password"}
-        className="custom-input"
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        style={{
-          backgroundColor: "rgba(255,255,255,0.02)",
-          border: "1px solid #4a5568",
-          borderRadius: "12px",
-          color: "#cbd5e0",
-          padding: "10px 44px 10px 14px",
-          width: "100%",
-          height: "48px",
-          fontSize: "13px",
-          outline: "none",
-          boxSizing: "border-box",
-          ...style,
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => setShow((prev) => !prev)}
-        style={{
-          position: "absolute",
-          right: "12px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: show ? "#00c6ff" : "#718096",
-          display: "flex",
-          alignItems: "center",
-          padding: 0,
-          transition: "color 0.2s",
-        }}
-      >
-        {show ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-            <line x1="1" y1="1" x2="23" y2="23"/>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+        <input
+          type={show ? "text" : "password"}
+          className="custom-input"
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          style={{
+            backgroundColor: syncedFrom ? "rgba(0,198,255,0.04)" : "rgba(255,255,255,0.02)",
+            border: syncedFrom ? "1px solid rgba(0,198,255,0.35)" : "1px solid #4a5568",
+            borderRadius: "12px",
+            color: "#cbd5e0",
+            padding: "10px 44px 10px 14px",
+            width: "100%",
+            height: "48px",
+            fontSize: "13px",
+            outline: "none",
+            boxSizing: "border-box",
+            transition: "border 0.2s, background 0.2s",
+            ...style,
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((prev) => !prev)}
+          style={{
+            position: "absolute",
+            right: "12px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: show ? "#00c6ff" : "#718096",
+            display: "flex",
+            alignItems: "center",
+            padding: 0,
+            transition: "color 0.2s",
+          }}
+        >
+          {show ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          )}
+        </button>
+      </div>
+      {/* 자동 동기화 출처 배지 */}
+      {syncedFrom && (
+        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00c6ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
           </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        )}
-      </button>
+          <span style={{ fontSize: "11px", color: "#00c6ff", opacity: 0.8, fontWeight: "600" }}>
+            {syncedFrom} 단계와 같은 엔진 — 키 자동 적용됨
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -233,6 +248,53 @@ function Spinner({ size = 14 }) {
       <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
     </svg>
   );
+}
+
+// ════════════════════════════════════════════════════
+// 키 자동 동기화 헬퍼
+// 우선순위: analysis → rag → response
+// 같은 엔진이면 앞 단계의 키를 그대로 사용한다.
+// ════════════════════════════════════════════════════
+
+/**
+ * stageEngines 기준으로 각 단계의 "실제 사용할 키"와 "어디서 가져왔는지"를 계산한다.
+ *
+ * 반환:
+ *   {
+ *     analysisKey: string,
+ *     ragKey: string,
+ *     responseKey: string,
+ *     ragSyncedFrom: null | "분석(01)",
+ *     responseSyncedFrom: null | "분석(01)" | "RAG(02)",
+ *   }
+ */
+function resolveAutoSyncedKeys(stageEngines, getMappedLlmType) {
+  const analysisEngine = getMappedLlmType(stageEngines.analysis);
+  const ragEngine      = getMappedLlmType(stageEngines.rag);
+  const responseEngine = getMappedLlmType(stageEngines.response);
+
+  const analysisKey = stageEngines.analysisKey || "";
+
+  // RAG: analysis와 같은 엔진이고 analysis 키가 있으면 → 분석 키 사용
+  let ragKey        = stageEngines.ragKeys?.[ragEngine] || "";
+  let ragSyncedFrom = null;
+  if (ragEngine === analysisEngine && analysisKey) {
+    ragKey        = analysisKey;
+    ragSyncedFrom = "분석(01)";
+  }
+
+  // Response: analysis 또는 rag와 엔진이 같고 키가 있으면 → 앞 단계 키 사용
+  let responseKey        = stageEngines.responseKey || "";
+  let responseSyncedFrom = null;
+  if (responseEngine === analysisEngine && analysisKey) {
+    responseKey        = analysisKey;
+    responseSyncedFrom = "분석(01)";
+  } else if (responseEngine === ragEngine && ragKey) {
+    responseKey        = ragKey;
+    responseSyncedFrom = "RAG(02)";
+  }
+
+  return { analysisKey, ragKey, ragEngine, responseKey, ragSyncedFrom, responseSyncedFrom };
 }
 
 export default function Admin({ chatbotType }) {
@@ -298,6 +360,9 @@ export default function Admin({ chatbotType }) {
     return "OpenAI GPT-5.3";
   };
 
+  // ── 자동 동기화된 키 값 계산 (렌더 타임에 파생) ──
+  const autoSync = resolveAutoSyncedKeys(stageEngines, getMappedLlmType);
+
   // ── RAG ──
   const [uiRagType, setUiRagType] = useState("none");
   const [nativeRagId, setNativeRagId] = useState("");
@@ -342,7 +407,6 @@ export default function Admin({ chatbotType }) {
   const [serverToolList, setServerToolList] = useState([]);
   const [selectedToolName, setSelectedToolName] = useState("");
   const [smitheryApiKey, setSmitheryApiKey] = useState("");
-  // 서버에서 인증 에러(401, 402, 403 등)를 뱉었을 때 키 입력창을 띄우기 위한 상태
   const [smitheryNeedsApiKey, setSmitheryNeedsApiKey] = useState(false);
 
   // ── 프롬프트 ──
@@ -456,6 +520,85 @@ export default function Admin({ chatbotType }) {
     }
   }, [selectedAgentId, apiKeys]);
 
+  // ════════════════════════════════════════════════════
+  // 엔진 변경 �핸들러 — 변경 후 자동 동기화 적용
+  // ════════════════════════════════════════════════════
+
+  /**
+   * 특정 단계의 엔진을 변경한다.
+   * 변경 후 뒤 단계에서 같은 엔진을 쓰고 있다면 키도 자동으로 맞춰준다.
+   */
+  const handleEngineChange = (stage, newEngine) => {
+    setStageEngines((prev) => {
+      const next = { ...prev, [stage]: newEngine };
+
+      // 엔진 변경 후 새로운 동기화 계산
+      const newAnalysisEngine  = getMappedLlmType(next.analysis);
+      const newRagEngine       = getMappedLlmType(next.rag);
+      const newResponseEngine  = getMappedLlmType(next.response);
+      const analysisKey        = next.analysisKey || "";
+      const ragKeyForEngine    = next.ragKeys?.[newRagEngine] || "";
+
+      // RAG 키: analysis와 같은 엔진이면 analysis 키 자동 적용
+      if (newRagEngine === newAnalysisEngine && analysisKey) {
+        next.ragKeys = { ...next.ragKeys, [newRagEngine]: analysisKey };
+      }
+
+      // Response 키: analysis 또는 rag와 같은 엔진이면 자동 적용
+      if (newResponseEngine === newAnalysisEngine && analysisKey) {
+        next.responseKey = analysisKey;
+      } else if (newResponseEngine === newRagEngine && (next.ragKeys?.[newRagEngine] || "")) {
+        next.responseKey = next.ragKeys[newRagEngine];
+      }
+
+      return next;
+    });
+
+    // RAG 엔진 변경 시 Vector Store ID 초기화
+    if (stage === "rag" && !newEngine.includes("GPT")) {
+      setNativeRagId("");
+    }
+  };
+
+  /**
+   * analysis 키 변경 시 — 동일 엔진인 rag/response 키도 함께 업데이트
+   */
+  const handleAnalysisKeyChange = (val) => {
+    setStageEngines((prev) => {
+      const next = { ...prev, analysisKey: val };
+      const analysisEngine = getMappedLlmType(next.analysis);
+      const ragEngine      = getMappedLlmType(next.rag);
+      const responseEngine = getMappedLlmType(next.response);
+
+      if (ragEngine === analysisEngine) {
+        next.ragKeys = { ...next.ragKeys, [ragEngine]: val };
+      }
+      if (responseEngine === analysisEngine) {
+        next.responseKey = val;
+      }
+      return next;
+    });
+  };
+
+  /**
+   * RAG 키 변경 시 — 동일 엔진인 response 키도 함께 업데이트
+   * (단, analysis와 엔진이 달라야 의미 있음 — 같으면 analysis 키가 우선)
+   */
+  const handleRagKeyChange = (engineType, val) => {
+    setStageEngines((prev) => {
+      const next = { ...prev, ragKeys: { ...prev.ragKeys, [engineType]: val } };
+      const analysisEngine = getMappedLlmType(next.analysis);
+      const ragEngine      = getMappedLlmType(next.rag);
+      const responseEngine = getMappedLlmType(next.response);
+
+      // analysis와 엔진이 다를 때만 response에 전파 (같으면 analysis가 우선)
+      if (responseEngine === ragEngine && ragEngine !== analysisEngine) {
+        next.responseKey = val;
+      }
+      return next;
+    });
+  };
+
   const handleVectorIdFinish = async () => {
     setIsUploading(true);
     const currentLlm = getMappedLlmType(stageEngines.rag);
@@ -507,15 +650,7 @@ export default function Admin({ chatbotType }) {
       try {
         let combinedFiles = [...ragFiles];
         let textContent = "";
-        const fetchTextFromUrl = async (url) => {
-          try {
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            const doc = new DOMParser().parseFromString(data.contents, "text/html");
-            doc.querySelectorAll("script, style, noscript, iframe, nav, footer").forEach((el) => el.remove());
-            return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
-          } catch { return `[URL 스크랩 실패: ${url}]`; }
-        };
+
         for (const item of ragTexts) {
           if (item.type === "url") {
             textContent += `\n\n--- [웹사이트 출처: ${item.content}] ---\n`;
@@ -669,7 +804,6 @@ export default function Admin({ chatbotType }) {
     setSmitheryNeedsApiKey(false);
   };
 
-  // ✅ Smithery 서버 검색 (무한 로딩 및 매핑 크래시 방지 적용)
   const handleSmitherySearch = async () => {
     if (!smitherySearchQuery.trim()) return;
     setIsSearching(true);
@@ -682,13 +816,11 @@ export default function Admin({ chatbotType }) {
     setSmitheryNeedsApiKey(false);
 
     try {
-      // 10초 타임아웃 방어
       const servers = await Promise.race([
         searchSmitheryServers(smitherySearchQuery, 10),
         new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
       ]);
 
-      // 배열 응답이 아니면 강제로 에러를 발생시켜 React 다운 방지
       if (!Array.isArray(servers)) {
         throw new Error(servers?.error || servers?.message || "올바른 형태의 검색 응답이 아닙니다.");
       }
@@ -705,7 +837,6 @@ export default function Admin({ chatbotType }) {
     }
   };
 
-  // ✅ 검색 결과에서 서버 선택 → 우선 키 없이 접근 시도
   const handleSelectSmitheryServer = async (server) => {
     setSelectedSmitheryServer(server);
     setSmitherySearchResults([]);
@@ -714,17 +845,15 @@ export default function Admin({ chatbotType }) {
     setSmitheryToolSpec(null);
     setSmitheryFetchError("");
     setSmitheryNeedsApiKey(false);
-    setSmitheryApiKey(""); // 새로운 서버 선택 시 입력되어 있던 키 초기화
+    setSmitheryApiKey("");
     setIsFetchingSpec(true);
 
     try {
-      // 10초 타임아웃 방어
       const tools = await Promise.race([
         fetchSmitheryTools(server.qualifiedName, {}, ""),
         new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))
       ]);
 
-      // 배열이 아니면(에러 객체 반환 등) .map() 크래시를 방지하고 catch로 넘김
       if (!Array.isArray(tools)) {
         const errMsg = String(tools?.error || tools?.message || "").toLowerCase();
         if (errMsg.includes("payment") || errMsg.includes("unauthorized") || errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("api key")) {
@@ -738,10 +867,8 @@ export default function Admin({ chatbotType }) {
         setSmitheryFetchError("툴 목록이 비어있습니다. 툴 이름을 직접 입력하세요.");
       }
     } catch (e) {
-      // 무조건 키 입력창 활성화
       setSmitheryNeedsApiKey(true);
       const msg = e.message || "";
-      
       if (msg === "NEEDS_PAYMENT" || msg.includes("401") || msg.includes("403")) {
         setSmitheryFetchError("이 서버는 API 키가 필요합니다. 아래에 키를 입력 후 재시도 버튼을 누르세요.");
       } else if (msg === "TIMEOUT") {
@@ -754,7 +881,6 @@ export default function Admin({ chatbotType }) {
     }
   };
 
-  // ✅ API 키 입력 후 재시도
   const handleRetryWithApiKey = async () => {
     if (!selectedSmitheryServer || !smitheryApiKey.trim()) return;
     setIsFetchingSpec(true);
@@ -777,14 +903,12 @@ export default function Admin({ chatbotType }) {
         throw new Error(tools?.error || tools?.message || "서버에서 툴 목록 배열을 반환하지 않았습니다.");
       }
 
-      // 성공 시 입력창 숨김 처리
       setSmitheryNeedsApiKey(false);
       setServerToolList(tools);
       if (tools.length === 0) {
         setSmitheryFetchError("툴 목록이 비어있습니다. 툴 이름을 직접 입력하세요.");
       }
     } catch (e) {
-      // 실패 시 입력창 다시 유지
       setSmitheryNeedsApiKey(true);
       const msg = e.message || "";
       if (msg === "NEEDS_PAYMENT" || msg.includes("401") || msg.includes("403")) {
@@ -799,7 +923,6 @@ export default function Admin({ chatbotType }) {
     }
   };
 
-  // 툴 목록에서 특정 툴 선택 → 스펙 파싱
   const handleSelectTool = (tool) => {
     setSelectedToolName(tool.name);
     setSmitheryToolName(tool.name);
@@ -807,7 +930,6 @@ export default function Admin({ chatbotType }) {
     setSmitheryToolSpec(spec);
   };
 
-  // 툴 이름으로 직접 스펙 조회 (수동 입력 fallback)
   const handleFetchSmitherySpec = async (toolName) => {
     if (!toolName.trim()) return;
     setIsFetchingSpec(true);
@@ -845,7 +967,6 @@ export default function Admin({ chatbotType }) {
     }
   };
 
-  // 항목 저장
   const handleAddSmitheryItem = () => {
     if (!targetDirId || !smitheryToolName.trim()) return;
     const params = smitheryToolSpec?.parameters || [];
@@ -950,7 +1071,12 @@ export default function Admin({ chatbotType }) {
       rag: getMappedLlmType(stageEngines.rag),
       response: getMappedLlmType(stageEngines.response),
     };
-    const currentKeys = { analysis: stageEngines.analysisKey, response: stageEngines.responseKey, rag: stageEngines.ragKeys };
+    // 저장 시 autoSync가 계산한 최종 키를 사용
+    const currentKeys = {
+      analysis: autoSync.analysisKey,
+      response: autoSync.responseKey,
+      rag: { ...stageEngines.ragKeys, [autoSync.ragEngine]: autoSync.ragKey },
+    };
     const updatedApiKeys = apiKeys.map((k) => {
       if (k.id === selectedAgentId) {
         return { ...k, llm: currentEngines.response, engines: currentEngines, keys: currentKeys, stageStatus };
@@ -1261,14 +1387,14 @@ export default function Admin({ chatbotType }) {
                     <div style={{ borderBottom: "1px solid #2d3748", marginBottom: "24px" }} />
 
                     <div style={{ flex: 1 }}>
-                      {/* analysis / response */}
+                      {/* ── analysis / response ── */}
                       {(selectedStage === "analysis" || selectedStage === "response") && (
                         <div className="fade-in">
                           <div className="form-group" style={{ marginBottom: "32px" }}>
                             <label style={{ fontSize: "13px", color: "#718096", marginBottom: "12px", display: "block", fontWeight: "600" }}>{selectedStage === "analysis" ? "분석용" : "응답 생성용"} 엔진 선택</label>
                             <select className="custom-select" style={{ height: "52px", borderRadius: "10px", fontSize: "15px" }}
                               value={selectedStage === "analysis" ? stageEngines.analysis : stageEngines.response}
-                              onChange={(e) => setStageEngines((prev) => ({ ...prev, [selectedStage]: e.target.value }))}>
+                              onChange={(e) => handleEngineChange(selectedStage, e.target.value)}>
                               <option>OpenAI GPT-5.3</option>
                               <option>Google Gemini 3.1 Pro</option>
                               <option disabled>LLaMON</option>
@@ -1277,27 +1403,39 @@ export default function Admin({ chatbotType }) {
                           </div>
                           <div style={{ border: "1px solid #2d3748", borderRadius: "16px", padding: "24px", backgroundColor: "rgba(0,0,0,0.2)" }}>
                             <label style={{ fontSize: "13px", fontWeight: "700", color: "#a0aec0", display: "block", marginBottom: "12px" }}>API KEY 인증 설정</label>
-                            <PasswordInput
-                              placeholder="인증키를 입력하세요..."
-                              value={selectedStage === "analysis" ? stageEngines.analysisKey : stageEngines.responseKey}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setStageEngines((prev) => ({ ...prev, [selectedStage === "analysis" ? "analysisKey" : "responseKey"]: val }));
-                              }}
-                            />
+                            {selectedStage === "analysis" ? (
+                              // ── 분석 단계: 키 직접 입력, 변경 시 하위 단계로 전파 ──
+                              <PasswordInput
+                                placeholder="인증키를 입력하세요..."
+                                value={autoSync.analysisKey}
+                                onChange={(e) => handleAnalysisKeyChange(e.target.value)}
+                              />
+                            ) : (
+                              // ── 응답 단계: 자동 동기화 표시 ──
+                              <PasswordInput
+                                placeholder="인증키를 입력하세요..."
+                                value={autoSync.responseKey}
+                                syncedFrom={autoSync.responseSyncedFrom}
+                                onChange={(e) => {
+                                  // 수동으로 바꾸면 syncedFrom이 사라지도록 직접 state 업데이트
+                                  const val = e.target.value;
+                                  setStageEngines((prev) => ({ ...prev, responseKey: val }));
+                                }}
+                              />
+                            )}
                             <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "8px" }}>* 저장된 키가 있는 경우 자동으로 표시됩니다.</p>
                           </div>
                         </div>
                       )}
 
-                      {/* RAG */}
+                      {/* ── RAG ── */}
                       {selectedStage === "rag" && (
                         <div className="fade-in">
                           <div className="form-group" style={{ marginBottom: "20px" }}>
                             <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block", fontWeight: "600" }}>RAG 엔진 선택</label>
                             <select className="custom-select" style={{ height: "48px", fontSize: "14px" }}
                               value={stageEngines.rag}
-                              onChange={(e) => { const val = e.target.value; setStageEngines((prev) => ({ ...prev, rag: val })); if (!val.includes("GPT")) setNativeRagId(""); }}>
+                              onChange={(e) => handleEngineChange("rag", e.target.value)}>
                               <option value="OpenAI GPT-5.3">OpenAI GPT-5.3</option>
                               <option value="Google Gemini 3.1 Pro">Google Gemini 3.1 Pro</option>
                               <option value="LLaMON" disabled>LLaMON</option>
@@ -1306,10 +1444,12 @@ export default function Admin({ chatbotType }) {
                           <div style={{ border: "1px solid #2d3748", borderRadius: "16px", padding: "24px", backgroundColor: "rgba(0,0,0,0.2)" }}>
                             <div className="form-group" style={{ marginBottom: "20px" }}>
                               <label style={{ fontSize: "13px", color: "#a0aec0", marginBottom: "8px", display: "block" }}>{isGptRag ? "OpenAI" : "Gemini"} API Key 설정</label>
+                              {/* RAG 키: analysis와 같은 엔진이면 자동 동기화 배지 표시 */}
                               <PasswordInput
                                 placeholder="API 키를 입력하세요..."
-                                value={stageEngines.ragKeys[currentRagEngineType] || ""}
-                                onChange={(e) => { const val = e.target.value; setStageEngines((prev) => ({ ...prev, ragKeys: { ...prev.ragKeys, [currentRagEngineType]: val } })); }}
+                                value={autoSync.ragKey}
+                                syncedFrom={autoSync.ragSyncedFrom}
+                                onChange={(e) => handleRagKeyChange(currentRagEngineType, e.target.value)}
                               />
                             </div>
                             {isGptRag && (
@@ -1631,15 +1771,12 @@ export default function Admin({ chatbotType }) {
       {isAddItemModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ maxWidth: "580px", textAlign: "left", padding: "28px", maxHeight: "90vh", overflowY: "auto" }}>
-
-            {/* 헤더 */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
               <span style={{ fontSize: "10px", fontWeight: "800", color: "#00c6ff", border: "1px solid rgba(0,198,255,0.4)", padding: "2px 8px", borderRadius: "6px", backgroundColor: "rgba(0,198,255,0.08)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Smithery</span>
               <h2 className="modal-title" style={{ margin: 0, fontSize: "20px" }}>{targetItemId ? "툴 수정" : "MCP 툴 추가"}</h2>
             </div>
             <p className="modal-desc" style={{ marginBottom: "20px" }}>Smithery 레지스트리에서 MCP 서버를 검색하거나 툴 이름을 직접 입력하세요.</p>
 
-            {/* ── STEP 1: Smithery 검색 ── */}
             <div style={{ marginBottom: "16px" }}>
               <label style={{ fontSize: "12px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>
                 Step 1 · Smithery 서버 검색
@@ -1665,7 +1802,6 @@ export default function Admin({ chatbotType }) {
                 </button>
               </div>
 
-              {/* 검색 결과 드롭다운 */}
               {smitherySearchResults.length > 0 && (
                 <div style={{ marginTop: "8px", border: "1px solid rgba(0,198,255,0.3)", borderRadius: "12px", overflow: "hidden", backgroundColor: "#0b0d10", maxHeight: "220px", overflowY: "auto" }}>
                   {smitherySearchResults.map((server, idx) => (
@@ -1691,7 +1827,6 @@ export default function Admin({ chatbotType }) {
                 </div>
               )}
 
-              {/* 선택된 서버 표시 및 API 키 입력창 */}
               {selectedSmitheryServer && (
                 <div style={{ marginTop: "12px" }}>
                   <div style={{ padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(0,198,255,0.06)", border: "1px solid rgba(0,198,255,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1703,7 +1838,6 @@ export default function Admin({ chatbotType }) {
                       style={{ background: "none", border: "none", color: "#718096", cursor: "pointer", fontSize: "16px", padding: "2px 6px" }}>✕</button>
                   </div>
 
-                  {/* 서버 연결 실패 (API 키 필요) 시에만 나타나는 강제 입력창 */}
                   {smitheryNeedsApiKey && (
                     <div style={{ marginTop: "12px", padding: "16px", backgroundColor: "rgba(248,113,113,0.05)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px" }}>
                       <label style={{ fontSize: "12px", fontWeight: "700", color: "#fca5a5", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>
@@ -1734,7 +1868,6 @@ export default function Admin({ chatbotType }) {
               )}
             </div>
 
-            {/* ── STEP 2: 툴 목록에서 선택 ── */}
             {isFetchingSpec && !smitheryToolSpec && (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px", color: "#718096", fontSize: "13px" }}>
                 <Spinner size={16} /> 툴 목록을 불러오는 중...
@@ -1769,14 +1902,12 @@ export default function Admin({ chatbotType }) {
               </div>
             )}
 
-            {/* 구분선 */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "16px 0" }}>
               <div style={{ flex: 1, height: "1px", backgroundColor: "#2d3748" }} />
               <span style={{ color: "#4a5568", fontSize: "11px", whiteSpace: "nowrap" }}>또는 툴 이름 직접 입력</span>
               <div style={{ flex: 1, height: "1px", backgroundColor: "#2d3748" }} />
             </div>
 
-            {/* ── STEP 3: 툴 이름 직접 입력 (수동) ── */}
             <div className="form-group" style={{ marginBottom: "16px" }}>
               <label style={{ fontSize: "12px", fontWeight: "700", color: "#718096", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "8px" }}>Tool Name</label>
               <div style={{ display: "flex", gap: "8px" }}>
@@ -1800,14 +1931,12 @@ export default function Admin({ chatbotType }) {
               </div>
             </div>
 
-            {/* 에러 메시지 */}
             {smitheryFetchError && (
               <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", backgroundColor: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", color: "#fca5a5", fontSize: "12px", lineHeight: "1.5" }}>
                 ⚠️ {smitheryFetchError}
               </div>
             )}
 
-            {/* 스펙 프리뷰 */}
             {smitheryToolSpec && (
               <div style={{ border: "1px solid rgba(0,198,255,0.3)", borderRadius: "14px", padding: "20px", backgroundColor: "rgba(0,198,255,0.04)", marginBottom: "24px" }}>
                 {smitheryToolSpec.description && (
@@ -1848,7 +1977,6 @@ export default function Admin({ chatbotType }) {
               </div>
             )}
 
-            {/* 버튼 */}
             <div className="modal-buttons" style={{ gap: "12px", display: "flex" }}>
               <button className="btn-outline" style={{ flex: 1 }} onClick={closeSmitheryModal}>취소</button>
               <button className="btn-primary" style={{ flex: 1.5, opacity: smitheryToolName.trim() ? 1 : 0.4, cursor: smitheryToolName.trim() ? "pointer" : "not-allowed" }}

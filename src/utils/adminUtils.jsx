@@ -437,3 +437,37 @@ export const runLlmWithMcp = async ({ llmType, apiKey, messages, mcpList = [], s
   }
   return runOpenAIWithMcp({ apiKey, messages, mcpList, systemPrompt, maxToolRounds });
 };
+
+// ════════════════════════════════════════════════════════════════
+// URL 스크랩
+// ════════════════════════════════════════════════════════════════
+export const fetchTextFromUrl = async (url) => {
+  // 1차: Jina.ai Reader (서버에서 처리해줘서 CORS 없음)
+  try {
+    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        "Accept": "text/plain",
+        "X-Return-Format": "markdown",
+        "X-Timeout": "15",
+      },
+    });
+    if (jinaRes.ok) {
+      const text = await jinaRes.text();
+      if (text && text.trim().length > 50) return text.trim();
+    }
+  } catch (e) { console.warn("[Jina]", e.message); }
+
+  // 2차: allorigins 프록시
+  try {
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+    if (data.contents) {
+      const doc = new DOMParser().parseFromString(data.contents, "text/html");
+      doc.querySelectorAll("script, style, noscript, iframe, nav, footer, header, aside").forEach((el) => el.remove());
+      const text = (doc.body?.textContent || "").replace(/\s+/g, " ").trim();
+      if (text.length > 200) return text;
+    }
+  } catch (e) { console.warn("[allorigins]", e.message); }
+
+  return `[URL 스크랩 실패: ${url}]\n해당 URL의 내용을 직접 텍스트로 붙여넣기 해주세요.`;
+};
