@@ -96,13 +96,13 @@ export function BasicChatbot({
   }, []);
 
   useEffect(() => {
-    if (isPsFailed && !greetingPlayedRef.current && isOpen) {
+    if (isPsFailed && !greetingPlayedRef.current) {
       greetingPlayedRef.current = true;
       const greetingText = "안녕하세요. 무엇을 도와드릴까요?";
       setChatHistory([{ role: "ai", text: greetingText }]);
       playFallbackTTS(greetingText, avatarnum);
     }
-  }, [isPsFailed, isOpen]);
+  }, [isPsFailed]);
 
   const handleResize = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -164,10 +164,7 @@ export function BasicChatbot({
   const openWidget = () => {
     setIsLoading(true);
     setIsRendered(true);
-    greetingPlayedRef.current = false;
-    setChatHistory([]);
-    llmHistoryRef.current = [];
-    threadIdRef.current = null;
+    greetingPlayedRef.current = chatHistory.length > 0;
     setIsPsFailed(false);
     setTimeout(() => setIsOpen(true), 10);
   };
@@ -213,8 +210,8 @@ export function BasicChatbot({
       try {
         // ✅ Fix 3: 페이지 프로토콜에 따라 http/https 자동 선택 (Mixed Content 차단 방지)
         const isSecurePage = window.location.protocol === "https:";
-        const httpProtocol = isSecurePage ? "https" : "http";
-        const wsProtocol = isSecurePage ? "wss" : "ws";
+        const httpProtocol = isSecurePage ? "http" : "http";
+        const wsProtocol = isSecurePage ? "wss" : "wss";
 
         // unrealurl에서 프로토콜을 제거하고 현재 페이지에 맞는 프로토콜로 교체
         const baseUrl = unrealurl.replace(/^https?:\/\//, "");
