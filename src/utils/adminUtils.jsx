@@ -110,6 +110,7 @@ export const saveConfiguration = ({
     mcpList,
     engines: savedAgent.engines,
     keys: savedAgent.keys,
+    stageStatus: savedAgent.stageStatus,  // ← 추가
   };
   localStorage.setItem("klever_widget_config", JSON.stringify(widgetConfig));
   const adminConfig = { apiKeys: updatedApiKeys, layout, autoOff, autoOffSec, mcpList };

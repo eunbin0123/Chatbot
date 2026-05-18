@@ -37,7 +37,7 @@
     z-index: 9999;
     
     /* 🚀 자연스럽게 커지고 나타나는 애니메이션 속성 */
-    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.35s;
+    transition: opacity 0.35s ease, visibility 0.35s;
     transform-origin: bottom right; /* 기본적으로 토글 버튼이 있는 우측 하단에서 튀어나오도록 설정 */
 }
 
@@ -195,7 +195,7 @@
     align-items: center;
     width: 60px;
     height: 60px;
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s, opacity 0.3s ease !important;
+    transition: background 0.2s, opacity 0.3s ease !important;
     display: flex;
     position: fixed;
     bottom: 40px;

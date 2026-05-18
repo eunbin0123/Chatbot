@@ -3,6 +3,10 @@
     {
       "source": "/tts-proxy/tts",
       "destination": "/api/tts"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "functions": {
