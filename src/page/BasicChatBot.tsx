@@ -211,7 +211,7 @@ export function BasicChatbot({
         // ✅ Fix 3: 페이지 프로토콜에 따라 http/https 자동 선택 (Mixed Content 차단 방지)
         const isSecurePage = window.location.protocol === "https:";
         const httpProtocol = isSecurePage ? "http" : "http";
-        const wsProtocol = isSecurePage ? "wss" : "wss";
+        const wsProtocol = isSecurePage ? "ws" : "ws";
 
         // unrealurl에서 프로토콜을 제거하고 현재 페이지에 맞는 프로토콜로 교체
         const baseUrl = unrealurl.replace(/^https?:\/\//, "");
