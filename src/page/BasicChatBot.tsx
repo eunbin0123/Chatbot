@@ -286,7 +286,7 @@ export function BasicChatbot({
       disconnectStreaming();
     };
   // ✅ Fix 5: isRendered를 의존성에 추가하여 DOM 마운트 후 재실행 보장
-  }, [isOpen, isRendered, unrealurl, avatarnum]);
+  }, [isOpen, isRendered, unrealurl]);
 
   useEffect(() => {
     if (psInstanceRef.current && isOpen && isPsConnected) {

@@ -33,8 +33,8 @@ html, body {
   min-height: 100vh;
   background-color: #0f1115;
   background-image:
-    radial-gradient(circle at 10% 10%, rgba(0, 198, 255, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(0, 114, 255, 0.05) 0%, transparent 40%);
+          radial-gradient(circle at 10% 10%, rgba(0, 198, 255, 0.05) 0%, transparent 40%),
+          radial-gradient(circle at 90% 90%, rgba(0, 114, 255, 0.05) 0%, transparent 40%);
   background-attachment: fixed;
   transition: background-color 0.3s ease;
 }
@@ -226,24 +226,25 @@ html, body {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   background: linear-gradient(to top, rgba(26, 29, 36, 1) 10%, rgba(26, 29, 36, 0.7) 60%, transparent 100%);
-  padding: 24px 20px 20px 20px;
+  padding: 16px 14px 14px 14px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px;
 }
 .character-text { flex: 1; }
-.character-text h4 { margin: 0 0 6px 0; font-size: 16px; color: #fff; font-weight: 700; }
-.character-text p { margin: 0; font-size: 12px; color: #a0aec0; line-height: 1.4; word-break: keep-all; }
+.character-text h4 { margin: 0 0 4px 0; font-size: 14px; color: #fff; font-weight: 700; word-break: break-word; overflow-wrap: break-word; }
+.character-text p { margin: 0; font-size: 11px; color: #a0aec0; line-height: 1.4; word-break: break-word; overflow-wrap: break-word; }
 .btn-character {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
-  padding: 6px 16px;
+  padding: 5px 10px;
   border-radius: 99px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s;
 }
 .character-card:hover .btn-character { background: rgba(255, 255, 255, 0.15); }
@@ -640,66 +641,360 @@ button { cursor: pointer; font-family: inherit; font-size: 14px; }
 /* ════════════════════════════════════════
    라이트 모드
 ════════════════════════════════════════ */
-.app-root.light-mode { background-color: #f0f4f8; }
+
+/* ── CSS 변수 오버라이드 ── */
+.app-root.light-mode {
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-input: #f7fafc;
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  background-color: #f0f4f8;
+  background-image:
+          radial-gradient(circle at 10% 10%, rgba(0, 114, 255, 0.04) 0%, transparent 40%),
+          radial-gradient(circle at 90% 90%, rgba(0, 198, 255, 0.04) 0%, transparent 40%);
+}
+
+/* ── 기본 텍스트 ── */
 .light-mode .agent-settings-container { color: #1a202c; }
 .light-mode .main-title { color: #1a202c; }
 .light-mode .sub-title { color: #4a5568; }
+.light-mode .card-title { color: #1a202c; }
+.light-mode .card-desc { color: #718096; }
+.light-mode .form-group label { color: #4a5568; }
+.light-mode .input-with-unit .unit { color: #4a5568; }
+
+/* ── 헤더 / 탭 ── */
 .light-mode .view-header { border-bottom-color: rgba(0, 0, 0, 0.1); }
+.light-mode .settings-tabs { border-bottom-color: #e2e8f0; }
 .light-mode .tab-btn { color: #718096; }
 .light-mode .tab-btn:hover { color: #1a202c; }
 .light-mode .tab-btn.active { color: #0072ff; border-bottom-color: #0072ff; text-shadow: none; }
-.light-mode .setting-card { background-color: #ffffff; border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-.light-mode .glass-card { background-color: rgba(255,255,255,0.9); border-color: #e2e8f0; }
-.light-mode .card-title { color: #1a202c; }
-.light-mode .card-desc { color: #718096; }
-.light-mode .api-key-item { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .api-key-name { color: #1a202c; }
-.light-mode .api-key-value { color: #4a5568; }
+
+/* ── 카드 ── */
+.light-mode .setting-card { background-color: #ffffff; border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.light-mode .glass-card {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.light-mode .active-no-glow {
+  border-color: #0072ff !important;
+  background-color: rgba(0, 114, 255, 0.04) !important;
+}
+
+/* ── 버튼들 ── */
+.light-mode .btn-outline { border-color: #cbd5e0; color: #4a5568; }
+.light-mode .btn-outline:hover { background-color: #edf2f7; }
 .light-mode .btn-icon { color: #718096; }
 .light-mode .btn-icon:hover { background-color: #edf2f7; color: #1a202c; }
+.light-mode .btn-icon.danger:hover { background-color: rgba(229,62,62,0.08); color: #e53e3e; }
 .light-mode .btn-text-reissue { border-color: #cbd5e0; color: #4a5568; }
-.light-mode .radio-card { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .radio-card.active { background-color: rgba(0, 114, 255, 0.05); border-color: #0072ff; }
-.light-mode .radio-label { color: #4a5568; }
-.light-mode .custom-input, .light-mode .custom-select, .light-mode .manual-prompt-textarea { background-color: #ffffff; border-color: #cbd5e0; color: #1a202c; }
-.light-mode .custom-input[readOnly] { background-color: #f7fafc; color: #718096; }
-.light-mode select.custom-select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); }
-.light-mode .agent-select-box { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .agent-select-box label { color: #4a5568; }
-.light-mode .unified-rag-box { background-color: #ffffff; border-color: #cbd5e0; }
-.light-mode .unified-rag-textarea { color: #1a202c; }
-.light-mode .file-chip { background: #edf2f7; border-color: #cbd5e0; color: #4a5568; }
-.light-mode .knowledge-item { background-color: #f7fafc; border-color: #e2e8f0; }
-.light-mode .knowledge-name { color: #1a202c; }
-.light-mode .knowledge-icon { background: #edf2f7; color: #4a5568; }
-.light-mode .knowledge-checkbox { background-color: #ffffff; border-color: #cbd5e0; }
-.light-mode .knowledge-checkbox:checked { background-color: #0072ff; border-color: #0072ff; }
-.light-mode .mode-toggle-btn { color: #718096; }
-.light-mode .mode-toggle-btn.active { background-color: #ffffff; color: #0072ff; }
-.light-mode .character-card { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .character-card.selected { border-color: #0072ff; box-shadow: 0 0 0 1px #0072ff, 0 8px 20px rgba(0, 114, 255, 0.15); }
-.light-mode .layout-preview { background-color: #ffffff; border-color: #cbd5e0; }
-.light-mode .layout-item span { color: #4a5568; }
-.light-mode .browser-mockup { border-color: #cbd5e0; background-color: #ffffff; }
-.light-mode .code-container { background-color: #f7fafc; border-color: #cbd5e0; }
-.light-mode .code-container pre { color: #2d3748; }
-.light-mode .code-tab-btn { border-color: #cbd5e0; color: #718096; }
-.light-mode .code-tab-btn.active { background: rgba(0, 114, 255, 0.05); border-color: #0072ff; color: #0072ff; }
-.light-mode .modal-box { background-color: #ffffff; border-color: #e2e8f0; }
-.light-mode .modal-title { color: #1a202c; }
-.light-mode .modal-desc { color: #4a5568; }
-.light-mode .btn-outline { border-color: #cbd5e0; color: #4a5568; }
-.light-mode .btn-icon-back { color: #a0aec0; }
+.light-mode .btn-text-reissue:hover { background-color: rgba(0,114,255,0.08); color: #0072ff; border-color: #0072ff; }
+.light-mode .btn-klever-sync {
+  background-color: rgba(0, 114, 255, 0.08);
+  color: #0072ff;
+  border-color: rgba(0, 114, 255, 0.3);
+}
+.light-mode .btn-klever-sync:hover {
+  background-color: rgba(0, 114, 255, 0.15);
+  border-color: #0072ff;
+}
+.light-mode .btn-icon-back { color: #718096; }
 .light-mode .btn-icon-back:hover { color: #1a202c; }
 .light-mode .btn-icon-theme { border-color: #cbd5e0; color: #4a5568; }
 .light-mode .btn-icon-theme:hover { background: #edf2f7; }
-.light-mode .ui-lang-select { border-color: #cbd5e0; color: #4a5568; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); }
-.light-mode .ui-lang-select:hover { background-color: #edf2f7; color: #1a202c; }
-.light-mode .ui-lang-select option { background-color: #fff; color: #1a202c; }
+.light-mode .btn-add-tag { background-color: #edf2f7; color: #4a5568; }
+.light-mode .btn-add-tag:hover { background-color: #e2e8f0; color: #1a202c; }
+.light-mode .btn-attach-new { color: #718096; }
+.light-mode .btn-attach-new:hover { background: rgba(0,0,0,0.04); color: #1a202c; }
+.light-mode .btn-submit-new { background-color: #e2e8f0; color: #4a5568; }
+.light-mode .btn-submit-new:hover:not(:disabled) { background-color: #0072ff; color: #fff; }
+.light-mode .btn-copy-code { background-color: #ffffff; color: #4a5568; border-color: #cbd5e0; }
+.light-mode .btn-copy-code:hover { background-color: #edf2f7; }
+
+/* ── 입력 요소 ── */
+.light-mode .custom-input,
+.light-mode .custom-select,
+.light-mode .manual-prompt-textarea {
+  background-color: #ffffff;
+  border-color: #cbd5e0;
+  color: #1a202c;
+}
+.light-mode .custom-input:focus,
+.light-mode .custom-select:focus,
+.light-mode .manual-prompt-textarea:focus { border-color: #0072ff; }
+.light-mode .custom-input[readOnly] { background-color: #f7fafc; color: #718096; }
+.light-mode select.custom-select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+.light-mode .unified-rag-textarea { color: #1a202c; }
+.light-mode .unified-rag-textarea::placeholder { color: #a0aec0; }
+.light-mode .custom-tag-input { color: #1a202c; }
+.light-mode .custom-tag-input::placeholder { color: #a0aec0; }
+.light-mode .custom-tag-input-wrap { border-color: #cbd5e0; }
+.light-mode .custom-tag-input-wrap:focus-within { border-color: #0072ff; }
+
+/* ── API 키 ── */
+.light-mode .api-key-item { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .api-key-item:hover { border-color: #cbd5e0; }
+.light-mode .api-key-name { color: #1a202c; }
+.light-mode .api-key-date { color: #a0aec0; }
+.light-mode .api-key-value { color: #4a5568; }
+
+/* ── 에이전트 선택 ── */
+.light-mode .agent-select-box { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .agent-select-box label { color: #4a5568; }
+
+/* ── 캐릭터 카드 ── */
+.light-mode .character-card { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .character-card:hover { border-color: #a0aec0; box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+.light-mode .character-card.selected { border-color: #0072ff; box-shadow: 0 0 0 1px #0072ff, 0 8px 20px rgba(0, 114, 255, 0.15); }
+
+/* ── RAG 업로드 ── */
+.light-mode .unified-rag-box { background-color: #ffffff; border-color: #cbd5e0; }
+.light-mode .unified-rag-box:hover,
+.light-mode .unified-rag-box:focus-within { border-color: #0072ff; background-color: rgba(0,114,255,0.01); }
+.light-mode .unified-rag-box.drag-active { border-color: #0072ff; background-color: rgba(0,114,255,0.05); }
+.light-mode .file-chip { background: #edf2f7; border-color: #e2e8f0; color: #4a5568; }
+.light-mode .file-chip button { color: #a0aec0; }
+.light-mode .file-chip button:hover { color: #e53e3e; }
+
+/* ── 지식 목록 ── */
+.light-mode .knowledge-item { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .knowledge-item:hover { border-color: #cbd5e0; }
+.light-mode .knowledge-item.selected { border-color: rgba(0,114,255,0.4); background-color: rgba(0,114,255,0.04); }
+.light-mode .knowledge-name { color: #1a202c; }
+.light-mode .knowledge-date { color: #a0aec0; }
+.light-mode .knowledge-icon { background: #edf2f7; color: #4a5568; }
+.light-mode .knowledge-checkbox { background-color: #ffffff; border-color: #cbd5e0; }
+.light-mode .knowledge-checkbox:checked { background-color: #0072ff; border-color: #0072ff; }
+
+/* ── 프롬프트 ── */
+.light-mode .prompt-tag { background-color: #f7fafc; border-color: #e2e8f0; color: #4a5568; }
+.light-mode .prompt-tag:hover { border-color: #a0aec0; color: #1a202c; }
+.light-mode .prompt-tag.active { background-color: rgba(0,114,255,0.08); border-color: #0072ff; color: #0072ff; }
+.light-mode .mode-toggle-group { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .mode-toggle-btn { color: #718096; }
+.light-mode .mode-toggle-btn:hover { color: #1a202c; }
+.light-mode .mode-toggle-btn.active { background-color: #ffffff; color: #0072ff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.light-mode .card-divider { border-top-color: #e2e8f0; }
+
+/* ── 라디오 카드 ── */
+.light-mode .radio-card { background-color: #ffffff; border-color: #e2e8f0; }
+.light-mode .radio-card:hover { border-color: #a0aec0; }
+.light-mode .radio-card.active { background-color: rgba(0,114,255,0.04); border-color: #0072ff; }
+.light-mode .radio-label { color: #4a5568; }
+
+/* ── MCP ── */
 .light-mode .mcp-item { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .mcp-item:hover { border-color: #cbd5e0; }
 .light-mode .mcp-name { color: #1a202c; }
 .light-mode .mcp-desc { color: #718096; }
+.light-mode .mcp-badge { background: #edf2f7; color: #718096; }
 .light-mode .toggle-switch { background: #cbd5e0; }
-.light-mode .card-divider { border-top-color: #cbd5e0; }
-.light-mode .form-group label { color: #4a5568; }
-.light-mode .btn-copy-code { background-color: #ffffff; color: #4a5568; border-color: #cbd5e0; }
+
+/* ── 레이아웃 선택기 ── */
+.light-mode .layout-preview { background-color: #ffffff; border-color: #e2e8f0; }
+.light-mode .layout-item:hover .layout-preview { border-color: #a0aec0; }
+.light-mode .layout-item.selected .layout-preview { border-color: #0072ff; background-color: rgba(0,114,255,0.04); }
+.light-mode .layout-item span { color: #4a5568; }
+.light-mode .layout-item.selected span { color: #0072ff; }
+.light-mode .browser-mockup { border-color: #cbd5e0; background-color: #ffffff; }
+
+/* ── 코드 컨테이너 ── */
+.light-mode .code-container { background-color: #f7fafc; border-color: #e2e8f0; }
+.light-mode .code-container pre { color: #2d3748; }
+.light-mode .code-tab-btn { border-color: #e2e8f0; color: #718096; }
+.light-mode .code-tab-btn:hover { background: #edf2f7; color: #1a202c; }
+.light-mode .code-tab-btn.active { background: rgba(0,114,255,0.06); border-color: #0072ff; color: #0072ff; }
+
+/* ── 모달 ── */
+.light-mode .modal-overlay { background-color: rgba(0,0,0,0.4); }
+.light-mode .modal-box { background-color: #ffffff; border-color: #e2e8f0; box-shadow: 0 10px 40px rgba(0,0,0,0.12); }
+.light-mode .modal-title { color: #1a202c; }
+.light-mode .modal-desc { color: #4a5568; }
+
+/* ── UI 언어 선택 ── */
+.light-mode .ui-lang-select {
+  border-color: #e2e8f0;
+  color: #4a5568;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+.light-mode .ui-lang-select:hover { background-color: #edf2f7; color: #1a202c; }
+.light-mode .ui-lang-select option { background-color: #fff; color: #1a202c; }
+
+/* ── SystemTab 사이드바 (인라인 스타일 보완) ── */
+.light-mode .system-pane [class*="glass-card"] h3,
+.light-mode .system-pane [class*="glass-card"] h4 { color: #1a202c; }
+.light-mode .system-pane [class*="glass-card"] p { color: #4a5568; }
+
+/* ── 스크롤바 (라이트) ── */
+.light-mode .knowledge-list-wrap::-webkit-scrollbar-track { background: #f7fafc; }
+.light-mode .knowledge-list-wrap::-webkit-scrollbar-thumb { background: #cbd5e0; }
+
+/* ════════════════════════════════════════
+   SystemTab 전용 CSS 변수 & 클래스
+════════════════════════════════════════ */
+:root {
+  --sidebar-text: #cbd5e0;
+  --sidebar-card-bg: rgba(255, 255, 255, 0.02);
+  --divider-color: #2d3748;
+  --toggle-off-bg: #2d3748;
+}
+
+/* API KEY 박스 */
+.stage-key-box {
+  border: 1px solid #2d3748;
+  border-radius: 16px;
+  padding: 24px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* form label */
+.stage-key-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a0aec0;
+  display: block;
+  margin-bottom: 12px;
+}
+.stage-form-label {
+  font-size: 13px;
+  color: #a0aec0;
+  display: block;
+  font-weight: 600;
+}
+
+/* ────────────────────────────
+   라이트모드 SystemTab 오버라이드
+──────────────────────────── */
+.light-mode {
+  --sidebar-text: #374151;
+  --sidebar-card-bg: rgba(0, 0, 0, 0.02);
+  --divider-color: #e2e8f0;
+  --toggle-off-bg: #cbd5e0;
+}
+
+.light-mode .stage-key-box {
+  border-color: #e2e8f0;
+  background-color: #f7fafc;
+}
+.light-mode .stage-key-label {
+  color: #4a5568;
+}
+.light-mode .stage-form-label {
+  color: #4a5568;
+}
+
+/* 사이드바 패널 제목 */
+.light-mode .system-detail-title {
+  color: #1a202c;
+}
+
+/* ── 사이드바 active 텍스트 변수 ── */
+:root {
+  --sidebar-active-text: #ffffff;
+  --tag-border: #2d3748;
+  --dir-header-bg: rgba(255, 255, 255, 0.02);
+  --dir-body-bg: rgba(0, 0, 0, 0.2);
+  --dir-item-bg: rgba(255, 255, 255, 0.01);
+  --dir-name-color: #ffffff;
+}
+.light-mode {
+  --sidebar-active-text: #0055cc;
+  --tag-border: #e2e8f0;
+  --dir-header-bg: #f7fafc;
+  --dir-body-bg: #f0f4f8;
+  --dir-item-bg: #ffffff;
+  --dir-name-color: #1a202c;
+}
+
+/* ════════════════════════════════════════
+   캐릭터 카드 라이트모드
+════════════════════════════════════════ */
+
+/* 오버레이 그라디언트를 라이트에서 밝게 */
+.light-mode .character-overlay {
+  background: linear-gradient(
+          to top,
+          rgba(255, 255, 255, 0.97) 0%,
+          rgba(255, 255, 255, 0.85) 30%,
+          rgba(255, 255, 255, 0.55) 55%,
+          rgba(255, 255, 255, 0.2) 72%,
+          rgba(255, 255, 255, 0.03) 88%,
+          transparent 100%
+  );
+}
+
+/* 카드 위쪽을 흰색으로 페이드해서 파스텔처럼 보이게 */
+.light-mode .character-bg {
+  opacity: 0.55;
+}
+
+/* 카드 이름/설명 텍스트 → 어둡게 */
+.light-mode .character-text h4 {
+  color: #1a202c;
+}
+.light-mode .character-text p {
+  color: #4a5568;
+}
+
+/* 선택하기 버튼 → 라이트 스타일 */
+.light-mode .btn-character {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #1a202c;
+}
+.light-mode .character-card:hover .btn-character {
+  background: rgba(0, 0, 0, 0.1);
+}
+.light-mode .character-card.selected .btn-character {
+  background: #0072ff;
+  border-color: #0072ff;
+  color: #fff;
+}
+
+/* 프롬프트 태그 라이트 모드 (태그 그리드 내부) */
+.light-mode .system-pane [style*="rgba(0,198,255,0.15)"] {
+  background-color: rgba(0, 114, 255, 0.1) !important;
+  color: #0055cc !important;
+}
+
+/* 프롬프트 태그 active 배경 변수 */
+:root { --tag-active-bg: rgba(0, 198, 255, 0.15); }
+.light-mode { --tag-active-bg: rgba(0, 114, 255, 0.1); }
+
+/* ── 라이트모드 MCP 디렉토리 카드 ── */
+.light-mode .system-pane .setting-card.glass-card {
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.light-mode .system-pane .glass-card [style*="rgba(255,255,255,0.02)"] {
+  background-color: #f7fafc !important;
+}
+.light-mode .system-pane .glass-card [style*="rgba(0,0,0,0.2)"] {
+  background-color: #f0f4f8 !important;
+}
+.light-mode .system-pane .glass-card span[style*="#fff"] {
+  color: #1a202c !important;
+}
+.light-mode .system-pane .glass-card span[style*="var(--text-muted)"] {
+  color: #718096 !important;
+}
+/* 디렉토리 헤더 */
+.light-mode [style*="rgba(255,255,255,0.02)"][style*="border-bottom"] {
+  background-color: #f7fafc !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+/* 디렉토리 아이템 카드 */
+.light-mode [style*="rgba(255,255,255,0.01)"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+/* 아이템 이름 */
+.light-mode [style*="color: \"#fff\""][style*="fontSize: \"13px\""] {
+  color: #1a202c !important;
+}
